@@ -1,0 +1,4231 @@
+import React, { useState, useEffect, useCallback } from "react";
+import Web3 from "web3";
+import { useNavigate } from "react-router-dom";
+import { 
+    Box, 
+    Container, 
+    Typography, 
+    Button, 
+    Grid, 
+    Card, 
+    CardContent, 
+    CardActions, 
+    TextField, 
+    Dialog, 
+    DialogTitle, 
+    DialogContent, 
+    DialogActions, 
+    AppBar, 
+    Toolbar, 
+    IconButton, 
+    MenuItem, 
+    Select, 
+    FormControl, 
+    InputLabel,
+    Paper,
+    Chip,
+    Avatar,
+    CircularProgress,
+    Divider,
+    Alert,
+    Snackbar,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Tabs,
+    Tab,
+    FormControlLabel,
+    Switch,
+    InputAdornment,
+    AlertTitle,
+    List,
+    ListItem,
+    ListItemIcon,
+    ListItemText,
+    CardMedia,
+    Checkbox
+} from '@mui/material';
+
+import { 
+    ShoppingCart as ShoppingCartIcon, 
+    Logout as LogoutIcon, 
+    Person as PersonIcon, 
+    FilterList as FilterListIcon,
+    AttachMoney as AttachMoneyIcon,
+    CalendarMonth as CalendarMonthIcon,
+    Inventory as InventoryIcon,
+    LocalShipping as LocalShippingIcon,
+    CheckCircle as CheckCircleIcon,
+    Search as SearchIcon,
+    PriorityHigh as PriorityHighIcon,
+    Inbox as InboxIcon,
+    ShoppingBasket as ShoppingBasketIcon,
+    Cancel as CancelIcon,
+    Refresh as RefreshIcon,
+    AccountBalanceWallet as AccountBalanceWalletIcon,
+    ArrowBack as ArrowBackIcon,
+    History as HistoryIcon,
+    Wifi as WifiIcon,
+    Sync as SyncIcon,
+    Gavel as GavelIcon,
+    AccessTime as AccessTimeIcon
+} from '@mui/icons-material';
+
+import { getIPFSGatewayURL } from '../services/pinataService';
+import { getUserDisplayName, getProfileImageUrl, getUserProfile } from '../services/profileService';
+import { motion } from "framer-motion";
+import { useTheme } from "../components/theme-provider";
+import { ThemeToggle } from "../components/theme-toggle";
+
+const CONTRACT_ADDRESS = "0x8dbf06Ee8a6E8793E7165f0C16d0d79A59D3E20D"; // Replace with your deployed contract address
+const CONTRACT_ABI = [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "buyer",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "farmer",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "cropID",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "quantity",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amountHeld",
+          "type": "uint256"
+        }
+      ],
+      "name": "CropBought",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "farmer",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "cropName",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "price",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "cropID",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "quantity",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "deliveryDate",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "imageCID",
+          "type": "string"
+        }
+      ],
+      "name": "CropListed",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "buyer",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "farmer",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "cropID",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amountReleased",
+          "type": "uint256"
+        }
+      ],
+      "name": "DeliveryConfirmed",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "requestId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "buyer",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "farmer",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "cropID",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "quantity",
+          "type": "uint256"
+        }
+      ],
+      "name": "PurchaseRequested",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "requestId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "enum FarmerPortal.RequestStatus",
+          "name": "status",
+          "type": "uint8"
+        }
+      ],
+      "name": "RequestStatusChanged",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "profileImageCID",
+          "type": "string"
+        }
+      ],
+      "name": "UserProfileUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "enum FarmerPortal.UserRole",
+          "name": "role",
+          "type": "uint8"
+        }
+      ],
+      "name": "UserRegistered",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "escrowBalances",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function",
+      "constant": true
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "users",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "wallet",
+          "type": "address"
+        },
+        {
+          "internalType": "enum FarmerPortal.UserRole",
+          "name": "role",
+          "type": "uint8"
+        },
+        {
+          "internalType": "bool",
+          "name": "registered",
+          "type": "bool"
+        },
+        {
+          "internalType": "string",
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "profileImageCID",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "location",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "contact",
+          "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function",
+      "constant": true
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint8",
+          "name": "role",
+          "type": "uint8"
+        }
+      ],
+      "name": "registerUser",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "_name",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "_profileImageCID",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "_location",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "_contact",
+          "type": "string"
+        }
+      ],
+      "name": "updateUserProfile",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_userAddress",
+          "type": "address"
+        }
+      ],
+      "name": "getUserProfile",
+      "outputs": [
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "",
+          "type": "string"
+        },
+        {
+          "internalType": "enum FarmerPortal.UserRole",
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function",
+      "constant": true
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "_cropName",
+          "type": "string"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_price",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_cropID",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_quantity",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "_deliveryDate",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "_imageCID",
+          "type": "string"
+        }
+      ],
+      "name": "addListing",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getMyListings",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "string",
+              "name": "cropName",
+              "type": "string"
+            },
+            {
+              "internalType": "uint256",
+              "name": "price",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "cropID",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "quantity",
+              "type": "uint256"
+            },
+            {
+              "internalType": "string",
+              "name": "deliveryDate",
+              "type": "string"
+            },
+            {
+              "internalType": "address",
+              "name": "farmer",
+              "type": "address"
+            },
+            {
+              "internalType": "string",
+              "name": "imageCID",
+              "type": "string"
+            }
+          ],
+          "internalType": "struct FarmerPortal.CropListing[]",
+          "name": "",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function",
+      "constant": true
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_user",
+          "type": "address"
+        }
+      ],
+      "name": "getUserRole",
+      "outputs": [
+        {
+          "internalType": "enum FarmerPortal.UserRole",
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function",
+      "constant": true
+    },
+    {
+      "inputs": [],
+      "name": "getAllListings",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "string",
+              "name": "cropName",
+              "type": "string"
+            },
+            {
+              "internalType": "uint256",
+              "name": "price",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "cropID",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "quantity",
+              "type": "uint256"
+            },
+            {
+              "internalType": "string",
+              "name": "deliveryDate",
+              "type": "string"
+            },
+            {
+              "internalType": "address",
+              "name": "farmer",
+              "type": "address"
+            },
+            {
+              "internalType": "string",
+              "name": "imageCID",
+              "type": "string"
+            }
+          ],
+          "internalType": "struct FarmerPortal.CropListing[]",
+          "name": "",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function",
+      "constant": true
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "cropID",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "quantity",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "buyer",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "farmer",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amountHeld",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "delivered",
+          "type": "bool"
+        }
+      ],
+      "name": "",
+      "outputs": [],
+      "stateMutability": "view",
+      "type": "function",
+      "constant": true
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "cropID",
+          "type": "uint256"
+        }
+      ],
+      "name": "confirmDelivery",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "cropId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "bidPriceWei",
+          "type": "uint256"
+        }
+      ],
+      "name": "placeBid",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "cropId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getBidsForCrop",
+      "outputs": [
+        {
+          "internalType": "address[]",
+          "name": "",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "",
+          "type": "uint256[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "cropId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getHighestBidForCrop",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ];
+
+function BuyerDashboard({ account }) {
+    const navigate = useNavigate();
+    const [localAccount, setLocalAccount] = useState(account);
+    const { theme } = useTheme();
+    const [contract, setContract] = useState(null);
+    const [web3, setWeb3] = useState(null);
+    const [crops, setCrops] = useState([]);
+    const [deliveries, setDeliveries] = useState([]);
+    const [buyerOrders, setBuyerOrders] = useState([]);
+    const [purchaseRequests, setPurchaseRequests] = useState([]);
+    const [selectedCrop, setSelectedCrop] = useState(null);
+    const [purchaseQuantity, setPurchaseQuantity] = useState("");
+    const [requestMessage, setRequestMessage] = useState("");
+    const [showModal, setShowModal] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [tabValue, setTabValue] = useState(0);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+    const [buyerName, setBuyerName] = useState("");
+    const [profileImageUrl, setProfileImageUrl] = useState("");
+    const [bidPrice, setBidPrice] = useState("");
+    const [bidEnabled, setBidEnabled] = useState(false);
+    const [emergencyTabMode, setEmergencyTabMode] = useState(false);
+    const [bidDialogOpen, setBidDialogOpen] = useState(false);
+    const [bidAmount, setBidAmount] = useState("");
+    const [bidHistory, setBidHistory] = useState([]);
+    const [cropHighestBids, setCropHighestBids] = useState({});
+    const [lastBidUpdate, setLastBidUpdate] = useState(0);
+    
+        // Update helper function to check if crop is in valid bidding window
+        const isWithinBiddingWindow = (crop) => {
+            try {
+                if (!crop || !crop.deliveryDate) {
+                    console.log("No delivery date available for crop bidding window check");
+                    return false;
+                }
+                
+                // Parse the cultivation/delivery date from the crop
+                const deliveryDate = new Date(crop.deliveryDate);
+                const currentDate = new Date();
+                
+                // Calculate the bidding window: 
+                // Bidding is allowed from 2 months before delivery date until 15 days before delivery date
+                const biddingStartDate = new Date(deliveryDate);
+                biddingStartDate.setMonth(deliveryDate.getMonth() - 2); // 2 months before delivery
+                
+                const biddingEndDate = new Date(deliveryDate);
+                biddingEndDate.setDate(deliveryDate.getDate() - 15); // 15 days before delivery
+                
+                // Check if current date is within the bidding window
+                const isInWindow = currentDate >= biddingStartDate && currentDate <= biddingEndDate;
+                
+                console.log(`Crop ${crop.cropID} bidding window: ${biddingStartDate.toLocaleDateString()} to ${biddingEndDate.toLocaleDateString()}, Current date: ${currentDate.toLocaleDateString()}, In window: ${isInWindow}`);
+                
+                return isInWindow;
+            } catch (error) {
+                console.error("Error checking bidding window:", error);
+                return false;
+            }
+        };
+    
+        // Update function to format the bidding window for display
+        const formatBiddingWindow = (crop) => {
+            try {
+                if (!crop || !crop.deliveryDate) {
+                    return "No bidding window available";
+                }
+                
+                const deliveryDate = new Date(crop.deliveryDate);
+                
+                const biddingStartDate = new Date(deliveryDate);
+                biddingStartDate.setMonth(deliveryDate.getMonth() - 2); // 2 months before delivery
+                
+                const biddingEndDate = new Date(deliveryDate);
+                biddingEndDate.setDate(deliveryDate.getDate() - 15); // 15 days before delivery
+                
+                return `${biddingStartDate.toLocaleDateString()} to ${biddingEndDate.toLocaleDateString()}`;
+            } catch (error) {
+                console.error("Error formatting bidding window:", error);
+                return "Error calculating bidding window";
+            }
+        };
+
+    useEffect(() => {
+        const init = async () => {
+            if (!account) {
+                console.log("No account provided, checking localStorage for account");
+            }
+            const result = await initializeContract();
+            
+            // Force refresh to ensure we have the latest data and crops
+            if (result) {
+                console.log("Contract initialized successfully, forcing refresh of data");
+                
+                // First clear any existing crops
+                setCrops([]);
+                
+                // Then reset and refresh removed crops
+                resetAndRefreshRemovedCrops();
+                
+                // Small delay to ensure localStorage sync is complete
+                setTimeout(() => {
+                    fetchListings();
+                }, 300);
+            }
+        };
+        
+        init();
+        
+        // Listen for account changes
+            if (window.ethereum) {
+            window.ethereum.on('accountsChanged', (accounts) => {
+                console.log("Account changed, refreshing...");
+                setLocalAccount(accounts[0]);
+                
+                // Re-initialize with new account
+                init();
+            });
+        }
+        
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Refresh data when contract changes
+    useEffect(() => {
+        if (contract && localAccount) {
+            fetchListings();
+            fetchPurchaseRequests();
+        }
+    }, [contract, localAccount]);
+
+    // Fetch buyer orders when tab changes to My Purchases
+    useEffect(() => {
+        if (tabValue === 2) {
+            // Reset emergency mode on each tab change
+            setEmergencyTabMode(false);
+            
+            // Only try to fetch data if we have the prerequisites
+            if (contract && localAccount) {
+                // Wrap in try/catch to ensure UI always renders even with errors
+                try {
+                    fetchBuyerOrders()
+                        .then(() => {
+                            console.log("Successfully loaded purchases tab data");
+                        })
+                        .catch(error => {
+                            console.error("Error in fetchBuyerOrders:", error);
+                            setSnackbar({
+                                open: true,
+                                message: "Error loading purchases. Showing limited view.",
+                                severity: 'warning'
+                            });
+                            // Enable emergency mode if data fetching fails
+                            setEmergencyTabMode(true);
+                        });
+                    
+            // Call debug function to help troubleshoot
+            debugContractState();
+                } catch (error) {
+                    console.error("Error setting up My Purchases tab:", error);
+                    setSnackbar({
+                        open: true,
+                        message: "Error accessing blockchain data. Showing limited view.",
+                        severity: 'warning'
+                    });
+                    // Enable emergency mode
+                    setEmergencyTabMode(true);
+                }
+            } else {
+                console.log("Missing prerequisites for purchases tab. Contract:", !!contract, "Account:", !!localAccount);
+                setEmergencyTabMode(true);
+                setSnackbar({
+                    open: true,
+                    message: "Blockchain connection unavailable. Showing limited view.",
+                    severity: 'warning'
+                });
+            }
+        }
+    }, [tabValue, contract, localAccount]);
+
+    useEffect(() => {
+        if (account) {
+            loadBuyerProfile();
+        }
+    }, [account]);
+
+    // Effect to restore the previously selected tab
+    useEffect(() => {
+        try {
+            const savedTab = localStorage.getItem('buyerDashboardActiveTab');
+            if (savedTab !== null) {
+                const tabIndex = parseInt(savedTab, 10);
+                if (!isNaN(tabIndex) && tabIndex >= 0 && tabIndex <= 2) {
+                    console.log("Restoring previously selected tab:", tabIndex);
+                    setTabValue(tabIndex);
+                }
+            }
+        } catch (error) {
+            console.error("Error restoring tab from localStorage:", error);
+            // Default to first tab if there's an error
+            setTabValue(0);
+        }
+    }, []);
+
+    // Effect to load data when tab changes
+    useEffect(() => {
+        // Don't load on initial mount since we have a separate init effect
+        if (tabValue === undefined) return;
+        
+        console.log("Tab changed effect triggered for tab:", tabValue);
+        
+        // Available Crops tab
+        if (tabValue === 0) {
+            if (!loading) {
+                console.log("Loading data for Available Crops tab");
+                setLoading(true);
+                fetchListings()
+                    .finally(() => setLoading(false));
+            }
+        }
+        // My Requests tab - load once contract is initialized
+        else if (tabValue === 1 && contract && localAccount) {
+            if (!loading) {
+                console.log("Loading data for My Requests tab");
+                setLoading(true);
+                fetchPurchaseRequests()
+                    .catch(error => {
+                        console.error("Error loading purchase requests in tab effect:", error);
+                        setSnackbar({
+                            open: true,
+                            message: "Could not load your requests. Please check your wallet connection.",
+                            severity: 'warning'
+                        });
+                    })
+                    .finally(() => setLoading(false));
+            }
+        }
+        // My Purchases tab - more permissive access conditions with fallbacks
+        else if (tabValue === 2) {
+            if (!loading) {
+                console.log("Loading data for My Purchases tab");
+                setLoading(true);
+                
+                // Check if web3 is available directly in the window object as fallback
+                const hasWeb3 = contract || window.web3 || (typeof window.ethereum !== 'undefined');
+                const hasAccount = localAccount || account;
+                
+                if (hasWeb3 && hasAccount) {
+                    // If contract isn't initialized yet but we have Web3, try to initialize it
+                    if (!contract && typeof window.ethereum !== 'undefined') {
+                        console.log("Attempting to initialize contract for My Purchases tab...");
+                        
+                        // First try to initialize contract
+                        initializeContract()
+                            .then(() => fetchBuyerOrders())
+                            .catch(error => {
+                                console.error("Error initializing contract for purchases:", error);
+                                // Try with minimal data display
+                                setBuyerOrders([]);
+                                setEmergencyTabMode(true);
+                                setSnackbar({
+                                    open: true,
+                                    message: "Limited functionality - please check your wallet connection.",
+                                    severity: 'warning'
+                                });
+                            })
+                            .finally(() => setLoading(false));
+                    } else {
+                        // Normal path - contract is already initialized
+                        fetchBuyerOrders()
+                            .catch(error => {
+                                console.error("Error loading purchase data:", error);
+                                setEmergencyTabMode(true);
+                                setSnackbar({
+                                    open: true,
+                                    message: "Error loading purchases. Some data may be unavailable.",
+                                    severity: 'warning'
+                                });
+                            })
+                            .finally(() => setLoading(false));
+                    }
+                } else {
+                    // No web3 or account available - show emergency mode
+                    console.warn("No Web3 or account available for My Purchases tab");
+                    setBuyerOrders([]);
+                    setEmergencyTabMode(true);
+                    setSnackbar({
+                        open: true,
+                        message: "Please connect your wallet to view your purchases.",
+                        severity: 'info'
+                    });
+                    setLoading(false);
+                }
+            }
+        }
+    }, [tabValue, contract, localAccount, account]);
+
+        async function loadWeb3AndData() {
+        try {
+            setLoading(true);
+            if (window.ethereum) {
+                // Request account access
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+                window.web3 = new Web3(window.ethereum);
+            } else if (window.web3) {
+                window.web3 = new Web3(window.web3.currentProvider);
+            } else {
+                setSnackbar({
+                    open: true,
+                    message: "Non-Ethereum browser detected. You should consider trying MetaMask!",
+                    severity: 'warning'
+                });
+                return;
+            }
+
+            const web3 = window.web3;
+            // Use the account passed as prop if available
+            if (!localAccount) {
+                const accounts = await web3.eth.getAccounts();
+                setLocalAccount(accounts[0]);
+            }
+
+        const contract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
+            setContract(contract);
+
+            // Load all crops
+        try {
+            const allCrops = await contract.methods.getAllListings().call();
+
+                // Enrich crops with farmer names
+                const enrichedCrops = await Promise.all(allCrops.map(async (crop) => {
+                    const farmerName = await getFarmerName(crop.farmer);
+                return {
+                        ...crop,
+                        farmerName
+                    };
+                }));
+                
+                setCrops(enrichedCrops);
+                } catch (error) {
+                console.error("Error loading crops:", error);
+                setSnackbar({
+                    open: true,
+                    message: "Error loading crops. Please try again.",
+                    severity: 'error'
+                });
+            }
+
+            // Load deliveries
+            await fetchDeliveries();
+        } catch (error) {
+            console.error("Error loading blockchain data:", error);
+            setSnackbar({
+                open: true,
+                message: "Error loading blockchain data. Please try again.",
+                severity: 'error'
+            });
+        } finally {
+                setLoading(false);
+            }
+        }
+
+    const fetchDeliveries = async () => {
+        try {
+            if (!contract || !contract.methods) {
+                console.error("Contract not initialized in fetchDeliveries");
+                return;
+            }
+            
+            console.log("Fetching deliveries...");
+            // Check if the getPendingDeliveries method exists
+            if (!contract.methods.getPendingDeliveries) {
+                console.warn("getPendingDeliveries method not found, using completed purchases instead");
+                // Call fetchBuyerOrders as a fallback to show completed purchases
+                await fetchBuyerOrders();
+                return;
+            }
+
+            const deliveryData = await contract.methods.getPendingDeliveries().call({ from: localAccount });
+            console.log("Raw deliveries:", deliveryData);
+
+            // Enrich deliveries with farmer names
+            const enrichedDeliveries = await Promise.all(deliveryData.map(async (delivery) => {
+                const farmerName = await getFarmerName(delivery.farmer);
+                return {
+                    ...delivery,
+                    farmerName
+                };
+            }));
+
+            console.log("Enriched deliveries:", enrichedDeliveries);
+            setDeliveries(enrichedDeliveries);
+        } catch (error) {
+            console.error("Error fetching deliveries:", error);
+            setSnackbar({
+                open: true,
+                message: "Error fetching deliveries. Please try again.",
+                severity: 'error'
+            });
+            
+            // Try to use fetchBuyerOrders as a fallback
+            try {
+                await fetchBuyerOrders();
+            } catch (innerError) {
+                console.error("Fallback to fetchBuyerOrders also failed:", innerError);
+            }
+        }
+    };
+
+    const loadBuyerProfile = async () => {
+        try {
+            const displayName = await getUserDisplayName(account);
+            setBuyerName(displayName);
+            
+            // Attempt to get the profile image
+            const profileImage = await getProfileImageUrl(account);
+            if (profileImage) {
+                setProfileImageUrl(profileImage);
+            }
+        } catch (error) {
+            console.error("Error loading buyer profile:", error);
+        }
+    };
+
+    // Function to fetch user profile data from contract
+    const fetchUserProfile = async (contractInstance, userAddress) => {
+        try {
+            if (!contractInstance) contractInstance = contract;
+            if (!userAddress) userAddress = localAccount;
+            
+            console.log("Fetching profile for:", userAddress);
+            const profile = await contractInstance.methods.getUserProfile(userAddress).call();
+            console.log("User profile data:", profile);
+            
+            // Profile returns [name, profileImageCID, location, contact, role]
+            if (profile && profile.length >= 2) {
+                const [name, profileImageCID] = profile;
+                setBuyerName(name || "Buyer");
+                
+                if (profileImageCID) {
+                    const imageUrl = getIPFSGatewayURL(profileImageCID);
+                    setProfileImageUrl(imageUrl);
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching user profile:", error);
+        }
+    };
+
+    // Helper function to get crop name from ID
+    const getCropName = async (cropId, contractInstance = contract) => {
+        try {
+            if (!contractInstance || !contractInstance.methods) {
+                console.log("Contract not initialized in getCropName");
+                return "Unknown";
+            }
+            
+            // Try to find crop in local crops list first
+            for (const crop of crops) {
+                if (crop && crop.cropID && cropId && crop.cropID.toString() === cropId.toString()) {
+                    return crop.cropName;
+                }
+            }
+            
+            // If not found locally, try to fetch from contract
+            try {
+                const cropInfo = await contractInstance.methods.getCrop(cropId).call();
+                return cropInfo.cropName || "Unknown";
+            } catch (err) {
+                console.error("Error fetching crop info from contract:", err);
+                return "Unknown";
+            }
+        } catch (error) {
+            console.error("Error in getCropName:", error);
+            return "Unknown";
+        }
+    };
+    
+    // Helper function to get farmer name
+    const getFarmerName = async (farmerAddress, contractInstance = contract) => {
+        try {
+            if (!contractInstance || !contractInstance.methods) {
+                console.log("Contract not initialized in getFarmerName");
+                return "Unknown";
+            }
+            
+            // Get the farmer's profile from the contract
+            try {
+                const farmerProfile = await contractInstance.methods.getUserProfile(farmerAddress).call();
+                return farmerProfile.name || "Unknown Farmer";
+            } catch (err) {
+                console.error("Error fetching farmer profile:", err);
+                return "Unknown Farmer";
+            }
+        } catch (error) {
+            console.error("Error in getFarmerName:", error);
+            return "Unknown Farmer";
+        }
+    };
+    
+    // Helper function to convert status number to text
+    const getStatusText = (statusNumber) => {
+        const statusMap = ["Pending", "Accepted", "Rejected", "Completed"];
+        return statusNumber !== undefined ? statusMap[statusNumber] || "Unknown" : "Unknown";
+    };
+
+    // Helper function to format ETH price from wei
+    const formatEthPrice = (weiPrice) => {
+        try {
+            return window.web3.utils.fromWei(weiPrice.toString(), "ether");
+        } catch (error) {
+            console.error("Error formatting ETH price:", error);
+            return "0";
+        }
+    };
+
+    // Helper function to get image URL from IPFS CID
+    const getCropImageUrl = (crop) => {
+        if (crop && crop.imageCID) {
+            return getIPFSGatewayURL(crop.imageCID);
+        }
+        // Return a default image if no CID is available
+        return 'https://via.placeholder.com/300x200?text=No+Image';
+    };
+
+    // New function to fetch purchase requests
+    const fetchPurchaseRequests = async (contractInstance = contract) => {
+        try {
+            if (!contractInstance) {
+            console.log("Contract not initialized yet, skipping fetch purchase requests");
+            return;
+        }
+
+        if (!localAccount) {
+            console.log("No account connected, skipping fetch purchase requests");
+            return;
+        }
+        
+            const buyerRequests = await contractInstance.methods.getBuyerRequests().call({from: localAccount});
+            console.log("Buyer purchase requests:", buyerRequests);
+            
+            // Get cancelled requests from localStorage
+            const cancelledRequests = JSON.parse(localStorage.getItem('cancelledRequests') || '{}');
+            
+            // Process requests and filter out cancelled ones
+            const requests = await Promise.all(
+                buyerRequests
+                    // Filter out requests that the user has locally cancelled
+                    .filter(request => !cancelledRequests[request.requestId])
+                    .map(async (request) => {
+                    try {
+                        // Convert wei to ether for display
+                        const priceInEther = web3.utils.fromWei(request.price, 'ether');
+                        const totalPrice = web3.utils.toBN(request.price)
+                            .mul(web3.utils.toBN(request.quantity))
+                            .toString();
+                        const totalPriceInEther = web3.utils.fromWei(totalPrice, 'ether');
+                        
+                        // Create enriched request object
+                        return {
+                            ...request,
+                            cropName: await getCropName(request.cropId, contractInstance),
+                            farmerName: await getFarmerName(request.farmer, contractInstance),
+                            priceInEther,
+                            totalPriceInEther,
+                            statusText: getStatusText(request.status)
+                        };
+                    } catch (err) {
+                        console.error("Error enriching request:", err, request);
+                        return request;
+                    }
+                })
+            );
+            
+            console.log("Enriched purchase requests:", requests);
+            setPurchaseRequests(requests);
+        } catch (error) {
+            console.error("Error fetching purchase requests:", error);
+            setSnackbar({
+                open: true,
+                message: `Error fetching purchase requests: ${error.message}`,
+                severity: 'error'
+            });
+        }
+    };
+
+    // Update the handleBuy function to include the custom bid price
+    const handleBuy = async () => {
+        if (!purchaseQuantity || parseFloat(purchaseQuantity) <= 0) {
+            setSnackbar({
+                open: true,
+                message: "Please enter a valid quantity",
+                severity: 'warning'
+            });
+            return;
+        }
+
+        if (parseFloat(purchaseQuantity) > parseFloat(selectedCrop.quantity)) {
+            setSnackbar({
+                open: true,
+                message: "Quantity exceeds available amount",
+                severity: 'warning'
+            });
+            return;
+        }
+        
+        if (bidEnabled && (!bidPrice || parseFloat(bidPrice) <= 0)) {
+            setSnackbar({
+                open: true,
+                message: "Please enter a valid bid price",
+                severity: 'warning'
+            });
+            return;
+        }
+
+        // Check if bid price meets minimum required (highest current bid)
+        if (bidEnabled && selectedCrop) {
+            try {
+                // Get the raw bid data directly from the contract
+                const rawBidData = await contract.methods.getBidsForCrop(selectedCrop.id).call();
+                console.log("Raw bid data from contract:", rawBidData);
+                
+                // Process the bid data - contract returns array of arrays
+                let highestBidAmount = parseFloat(formatEthPrice(selectedCrop.price)); // Default to base price
+                let highestBidder = null;
+                
+                if (rawBidData && Array.isArray(rawBidData) && rawBidData.length >= 2 && rawBidData[0].length > 0) {
+                    // Find the highest bid
+                    let maxBidIdx = 0;
+                    let maxBidWei = rawBidData[1][0]; // Default to first bid
+                    
+                    for (let i = 1; i < rawBidData[1].length; i++) {
+                        if (parseInt(rawBidData[1][i]) > parseInt(maxBidWei)) {
+                            maxBidIdx = i;
+                            maxBidWei = rawBidData[1][i];
+                        }
+                    }
+                    
+                    // Convert highest bid to ETH
+                    highestBidAmount = parseFloat(web3.utils.fromWei(maxBidWei, 'ether'));
+                    highestBidder = rawBidData[0][maxBidIdx];
+                    
+                    console.log("Found highest bid:", {
+                        bidder: highestBidder,
+                        amount: highestBidAmount
+                    });
+                } else {
+                    console.log("No bids found, using base price");
+                }
+                
+                // Compare user bid with highest bid
+                const bidPriceNum = parseFloat(bidPrice);
+                
+                console.log("Bid validation:", {
+                    yourBid: bidPriceNum,
+                    minRequired: highestBidAmount,
+                    isValid: bidPriceNum >= highestBidAmount
+                });
+                    
+                if (bidPriceNum < highestBidAmount) {
+                    setSnackbar({
+                        open: true,
+                        message: `Your bid (${bidPriceNum.toFixed(4)} ETH) is too low. Minimum bid is ${highestBidAmount.toFixed(4)} ETH`,
+                        severity: 'error'
+                    });
+                    return;
+                }
+            } catch (error) {
+                console.error("Error fetching highest bid for validation:", error);
+                // Fallback to the cached highest bid data
+                const bidPriceNum = parseFloat(bidPrice);
+                const minimumBidNum = selectedCrop && cropHighestBids && cropHighestBids[selectedCrop.id]
+                    ? parseFloat(cropHighestBids[selectedCrop.id].amount)
+                    : parseFloat(formatEthPrice(selectedCrop.price));
+                
+                console.log("Fallback bid validation:", {
+                    yourBid: bidPriceNum,
+                    minRequired: minimumBidNum,
+                    isValid: bidPriceNum >= minimumBidNum
+                });
+                    
+                if (bidPriceNum < minimumBidNum) {
+                    setSnackbar({
+                        open: true,
+                        message: `Your bid (${bidPriceNum.toFixed(4)} ETH) is too low. Minimum bid is ${minimumBidNum.toFixed(4)} ETH`,
+                        severity: 'error'
+                    });
+                    return;
+                }
+            }
+        }
+
+        // Calculate the price to use (either default or bid)
+        let priceToUse = bidEnabled && bidPrice ? 
+            window.web3.utils.toWei(bidPrice, 'ether') : 
+            selectedCrop.price;
+            
+        requestPurchase(
+            selectedCrop.cropID, 
+            purchaseQuantity, 
+            requestMessage || "Interested in buying this crop",
+            priceToUse
+        );
+    };
+
+    // Update the requestPurchase function to handle custom bid prices
+    const requestPurchase = async (cropID, quantity, message, bidPriceWei = null) => {
+        try {
+            setLoading(true);
+            console.log("Requesting to buy crop:", cropID, "Quantity:", quantity, "Message:", message);
+            if (bidPriceWei) {
+                console.log("Custom bid price (wei):", bidPriceWei);
+                console.log("Custom bid price (ETH):", window.web3.utils.fromWei(bidPriceWei, 'ether'));
+            }
+            
+            // Ensure Web3 is initialized
+            if (!window.web3) {
+                throw new Error("Web3 is not initialized");
+            }
+
+            // Re-initialize contract if needed
+            if (!contract) {
+                const web3 = window.web3;
+                const newContract = new web3.eth.Contract(CONTRACT_ABI, CONTRACT_ADDRESS);
+                setContract(newContract);
+                throw new Error("Contract was not initialized, please try again");
+            }
+
+            // Log the parameters we're sending
+            console.log("Request purchase parameters:", {
+                cropID: cropID,
+                quantity: quantity,
+                message: message,
+                bidPriceWei: bidPriceWei
+            });
+            
+            // Send the transaction
+            // If we have a custom bid price, use it; otherwise use the contract's requestPurchase without bid
+            let result;
+            if (bidPriceWei) {
+                // Call requestPurchaseWithBid function (assuming it exists in the contract)
+                // If not, you'll need to add this function to your smart contract
+                try {
+                    result = await contract.methods.requestPurchaseWithBid(cropID, quantity, message, bidPriceWei).send({
+                from: localAccount
+            });
+                } catch (error) {
+                    console.error("Error with requestPurchaseWithBid, trying fallback method:", error);
+                    
+                    // Fallback to storing the bid in localStorage if contract doesn't support it
+                    result = await contract.methods.requestPurchase(cropID, quantity, message).send({
+                        from: localAccount
+                    });
+                    
+                    // After successful request, store the bid information in localStorage
+                    if (result) {
+                        try {
+                            const requestId = result.events?.PurchaseRequested?.returnValues?.requestId || 
+                                             result.events?.['PurchaseRequested']?.returnValues?.requestId;
+                            
+                            if (requestId) {
+                                // Store bid information in localStorage
+                                const bids = JSON.parse(localStorage.getItem('cropBids') || '{}');
+                                bids[requestId] = {
+                                    cropID,
+                                    bidPrice: window.web3.utils.fromWei(bidPriceWei, 'ether'),
+                                    bidPriceWei,
+                                    timestamp: new Date().getTime()
+                                };
+                                localStorage.setItem('cropBids', JSON.stringify(bids));
+                                console.log("Stored bid in localStorage for requestId:", requestId);
+                            }
+                        } catch (storageError) {
+                            console.error("Failed to store bid in localStorage:", storageError);
+                        }
+                    }
+                }
+            } else {
+                // Regular purchase request without bid
+                result = await contract.methods.requestPurchase(cropID, quantity, message).send({
+                    from: localAccount
+                });
+            }
+            
+            console.log("Purchase request transaction result:", result);
+
+            setSnackbar({
+                open: true,
+                message: bidPriceWei ? 
+                    "Purchase request with custom bid sent successfully! The farmer will review your offer." :
+                    "Purchase request sent successfully! The farmer will review your request.",
+                severity: 'success'
+            });
+            
+            // Reset bid price
+            setBidPrice("");
+            setBidEnabled(false);
+            
+            // Refresh data
+            await fetchPurchaseRequests();
+            setShowModal(false);
+        } catch (error) {
+            console.error("Error requesting purchase:", error);
+            setSnackbar({
+                open: true,
+                message: `Error requesting purchase: ${error.message}`,
+                severity: 'error'
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Add a helper function to get custom bid price from localStorage
+    const getAcceptedCustomBidPrice = (requestId) => {
+        try {
+            const acceptedCustomBids = JSON.parse(localStorage.getItem('acceptedCustomBids') || '{}');
+            const customBid = acceptedCustomBids[requestId];
+            
+            if (customBid && customBid.customPriceWei) {
+                console.log(`Found custom bid price for request ${requestId}: ${customBid.customPrice} ETH`);
+                return {
+                    customPriceWei: customBid.customPriceWei,
+                    customPriceEth: customBid.customPrice
+                };
+            }
+        } catch (error) {
+            console.error("Error getting custom bid price from localStorage:", error);
+        }
+        return null;
+    };
+
+    // New function to complete the purchase after request is accepted
+    const completePurchase = async (requestId, priceInWei, quantity) => {
+        try {
+            setLoading(true);
+            console.log("Completing purchase for request:", requestId);
+            
+            // Check if there's a custom bid price for this request
+            const customBid = getAcceptedCustomBidPrice(requestId);
+            
+            // Use custom price if available, otherwise use the original price
+            let actualPriceInWei = priceInWei;
+            let priceExplanation = "original listing price";
+            
+            if (customBid && customBid.customPriceWei) {
+                actualPriceInWei = customBid.customPriceWei;
+                priceExplanation = `custom bid price (${customBid.customPriceEth} ETH)`;
+                console.log(`Using custom bid price of ${customBid.customPriceEth} ETH instead of original price`);
+            }
+            
+            // Calculate total price
+            const totalWei = web3.utils.toBN(actualPriceInWei)
+                .mul(web3.utils.toBN(quantity))
+                .toString();
+            
+            console.log(`Total price in Wei (using ${priceExplanation}):`, totalWei);
+            console.log("Total price in ETH:", web3.utils.fromWei(totalWei, "ether"));
+
+            // Get current gas price and increase to help transaction succeed
+            const gasPrice = await web3.eth.getGasPrice();
+            const adjustedGasPrice = Math.floor(parseInt(gasPrice) * 1.2).toString(); // 20% higher
+            
+            // Try to estimate gas for this transaction
+            try {
+                const gasEstimate = await contract.methods.completePurchase(requestId).estimateGas({
+                    from: localAccount,
+                    value: totalWei
+                });
+                console.log("Gas estimate for completePurchase:", gasEstimate);
+                
+                // Add a large buffer to gas estimate
+                const gasLimit = Math.floor(gasEstimate * 2); // Double the estimated gas
+                console.log("Using gas limit:", gasLimit);
+                
+                // Send the transaction with payment and optimal gas settings
+                const result = await contract.methods.completePurchase(requestId).send({
+                    from: localAccount,
+                    value: totalWei,
+                    gas: gasLimit,
+                    gasPrice: adjustedGasPrice
+                });
+                
+                console.log("Transaction successful:", result);
+                
+                // If we used a custom bid price, remove it from localStorage to avoid confusion
+                if (customBid) {
+                    try {
+                        const acceptedCustomBids = JSON.parse(localStorage.getItem('acceptedCustomBids') || '{}');
+                        delete acceptedCustomBids[requestId];
+                        localStorage.setItem('acceptedCustomBids', JSON.stringify(acceptedCustomBids));
+                        console.log(`Removed custom bid for request ${requestId} from localStorage after completion`);
+                    } catch (error) {
+                        console.error("Error updating localStorage after completing purchase:", error);
+                    }
+                }
+                
+                setSnackbar({
+                    open: true,
+                    message: customBid 
+                        ? `Purchase completed successfully at custom bid price of ${customBid.customPriceEth} ETH!`
+                        : "Purchase completed successfully! Payment sent to escrow.",
+                    severity: 'success'
+                });
+                
+                // Refresh data
+                await fetchPurchaseRequests();
+                await fetchBuyerOrders();
+            } catch (estimateError) {
+                console.error("Gas estimation failed:", estimateError);
+                
+                // Check if there's a revert reason in the error
+                if (estimateError.message.includes("revert")) {
+                    throw new Error(`Transaction would fail: ${estimateError.message.split("revert ")[1] || "Check your purchase request status"}`);
+                }
+                
+                // Try anyway with fixed high gas as fallback
+                console.log("Trying with fixed high gas limit as fallback");
+                
+                const result = await contract.methods.completePurchase(requestId).send({
+                    from: localAccount,
+                    value: totalWei,
+                    gas: 800000, // Very high fixed gas limit
+                    gasPrice: adjustedGasPrice
+                });
+                
+                console.log("Transaction successful with fixed gas:", result);
+                
+                setSnackbar({
+                    open: true,
+                    message: "Purchase completed successfully with higher gas! Payment sent to escrow.",
+                    severity: 'success'
+                });
+                
+                // Refresh data
+                await fetchPurchaseRequests();
+                await fetchBuyerOrders();
+            }
+        } catch (error) {
+            console.error("Error completing purchase:", error);
+            
+            // Extract more detailed error message
+            let errorMessage = error.message;
+            let actionAdvice = "";
+            
+            // Check for specific error patterns
+            if (error.code === -32603) {
+                if (error.message.includes("already completed")) {
+                    errorMessage = "This purchase has already been completed";
+                    actionAdvice = "Try confirming the delivery directly from the My Orders tab.";
+                    
+                    // Try to move directly to confirm delivery
+                    setTimeout(() => {
+                        confirmDelivery(purchase.cropID);
+                    }, 1000);
+                    
+                    return true;
+                } else if (error.message.includes("revert")) {
+                    const revertIndex = error.message.indexOf("revert");
+                    if (revertIndex !== -1) {
+                        errorMessage = error.message.substring(revertIndex);
+                } else {
+                        errorMessage = "Smart contract rejected the transaction. Check that you have enough funds and are the proper buyer.";
+                    }
+                } else if (error.message.includes("gas")) {
+                    errorMessage = "Transaction failed due to gas issues. Try again with a higher gas limit.";
+                } else {
+                    errorMessage = "Transaction rejected. This might be due to contract conditions not being met or network congestion.";
+                    console.log("Full error details:", error);
+                    
+                    // Try to analyze Metamask RPC errors better
+                    if (error.message.includes("Internal JSON-RPC error")) {
+                        const pendingDeliveries = await contract.methods.getPendingDeliveries().call({from: localAccount});
+                        console.log("Current pending deliveries:", pendingDeliveries);
+                        
+                        if (pendingDeliveries.some(d => d.cropID.toString() === purchase.cropID.toString())) {
+                            errorMessage = "It appears you've already completed this purchase.";
+                            actionAdvice = "Try confirming the delivery directly from the My Orders tab.";
+                            
+                            // Try to move directly to confirm delivery
+                            setTimeout(() => {
+                                confirmDelivery(purchase.cropID);
+                            }, 1000);
+                            
+                            return true;
+                        }
+                    }
+                }
+            } else if (error.message.includes("insufficient funds")) {
+                errorMessage = "You don't have enough ETH to complete this purchase";
+                actionAdvice = "Add more ETH to your wallet and try again.";
+            }
+            
+            setSnackbar({
+                open: true,
+                message: `Error completing purchase: ${errorMessage}. ${actionAdvice}`,
+                severity: 'error'
+            });
+            return false;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const confirmDelivery = async (cropID) => {
+        try {
+            setLoading(true);
+            console.log("Confirming delivery for crop ID:", cropID);
+            
+            if (!contract || !contract.methods) {
+                throw new Error("Contract not initialized");
+            }
+            
+            // First check if the delivery exists and is pending
+            const pendingDeliveries = await contract.methods.getPendingDeliveries().call({from: localAccount});
+            console.log("Pending deliveries:", pendingDeliveries);
+            
+            // Check if this cropID exists in the pending deliveries
+            const targetDelivery = pendingDeliveries.find(delivery => 
+                delivery.cropID.toString() === cropID.toString()
+            );
+            
+            if (!targetDelivery) {
+                console.warn("No pending delivery found for cropID", cropID);
+                throw new Error("No pending delivery found for this crop. It may have already been confirmed.");
+            }
+            
+            console.log("Found pending delivery to confirm:", targetDelivery);
+            
+            // Get current gas price and increase it to help transaction succeed
+            const gasPrice = await web3.eth.getGasPrice();
+            const adjustedGasPrice = Math.floor(parseInt(gasPrice) * 1.4).toString(); // 40% higher
+            
+            console.log("Using gas price (adjusted):", web3.utils.fromWei(adjustedGasPrice, 'gwei'), "gwei");
+            
+            // First check contract balance to make sure funds are available
+            const escrowBalance = await contract.methods.escrowBalances(localAccount).call();
+            console.log("Escrow balance:", escrowBalance);
+            
+            if (parseInt(escrowBalance) < parseInt(targetDelivery.amountHeld)) {
+                throw new Error(`Insufficient escrow balance. Expected ${targetDelivery.amountHeld} but got ${escrowBalance}`);
+            }
+            
+            // Send the transaction with high gas settings
+            const result = await contract.methods.confirmDelivery(cropID).send({ 
+                from: localAccount,
+                gas: 800000, // Very high gas limit
+                gasPrice: adjustedGasPrice,
+                maxPriorityFeePerGas: null // Let MetaMask decide
+            });
+            
+            console.log("Transaction result:", result);
+            
+            setSnackbar({
+                open: true,
+                message: "Delivery confirmed successfully! Payment released to farmer.",
+                severity: 'success'
+            });
+            
+            // Refresh deliveries
+            await fetchBuyerOrders();
+        } catch (error) {
+            console.error("Error confirming delivery:", error);
+            
+            // Get more details from the error
+            let errorMessage = error.message;
+            
+            // Check for common blockchain errors
+            if (errorMessage.includes("No pending delivery found")) {
+                errorMessage = "This delivery has already been confirmed or doesn't exist.";
+            } else if (errorMessage.includes("insufficient funds")) {
+                errorMessage = "Insufficient ETH for gas fees. Please add more ETH to your wallet.";
+            } else if (errorMessage.includes("execution reverted")) {
+                errorMessage = "Contract rejected the transaction. This delivery may have already been confirmed.";
+            } else if (error.code === -32603) {
+                // MetaMask internal JSON-RPC error - most likely the smart contract reverted
+                errorMessage = "Contract verification failed. This typically means the delivery is already confirmed or not in the right state.";
+                
+                // Debug details
+                console.log("Full RPC error:", error);
+                // Try to fetch latest state
+                debugPendingDeliveries();
+            }
+            
+            setSnackbar({
+                open: true,
+                message: `Error confirming delivery: ${errorMessage}`,
+                severity: 'error'
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Try different approaches to confirm delivery with more robust error handling
+    const tryConfirmDelivery = async (delivery) => {
+        try {
+            setLoading(true);
+            console.log("Trying to confirm delivery for:", delivery);
+            
+            // First, check if we have permission
+            const permissionCheck = await checkDeliveryPermission(delivery);
+            console.log("Permission check result:", permissionCheck);
+            
+            if (!permissionCheck.canConfirm) {
+                setSnackbar({
+                    open: true,
+                    message: `Cannot confirm delivery: ${permissionCheck.message}`,
+                    severity: 'warning'
+                });
+                return false;
+            }
+            
+            // Show all contract methods for debugging
+            const methods = Object.keys(contract.methods);
+            console.log("Available contract methods:", methods);
+            
+            // Try confirmDelivery with higher gas limit
+            if (contract.methods.confirmDelivery) {
+                console.log("Attempting confirmDelivery with higher gas limit");
+                try {
+                    // Add more gas and higher gas price
+                    const gasPrice = await web3.eth.getGasPrice();
+                    const adjustedGasPrice = Math.floor(parseInt(gasPrice) * 1.5).toString(); // 50% higher
+                    
+                    console.log("Standard gas price:", gasPrice);
+                    console.log("Using adjusted gas price:", adjustedGasPrice);
+                    
+                    const result = await contract.methods.confirmDelivery(delivery.cropID).send({
+                        from: localAccount,
+                        gas: 500000, // Higher gas limit
+                        gasPrice: adjustedGasPrice
+                    });
+                    
+                    console.log("Transaction successful:", result);
+                    
+                    setSnackbar({
+                        open: true,
+                        message: "Delivery confirmed successfully! Payment released to farmer.",
+                        severity: 'success'
+                    });
+                    
+                    await fetchBuyerOrders();
+                    return true;
+                } catch (err) {
+                    console.error("confirmDelivery failed with details:", err);
+                    
+                    // Extract more detailed error information
+                    let errorMsg = err.message;
+                    if (err.code === -32603 && err.data) {
+                        errorMsg = `Contract execution failed: ${err.data.message || errorMsg}`;
+                    }
+                    
+                    setSnackbar({
+                        open: true,
+                        message: `Error confirming delivery: ${errorMsg}`,
+                        severity: 'error'
+                    });
+                }
+            } else {
+                setSnackbar({
+                    open: true,
+                    message: "Contract doesn't have a confirmDelivery method",
+                    severity: 'error'
+                });
+            }
+            
+            return false;
+        } catch (error) {
+            console.error("Error in tryConfirmDelivery:", error);
+            setSnackbar({
+                open: true,
+                message: `Error: ${error.message}`,
+                severity: 'error'
+            });
+            return false;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const openBuyModal = async (crop) => {
+        setSelectedCrop(crop);
+        setPurchaseQuantity(1);
+        setRequestMessage("");
+        
+        // Get the latest highest bid for this crop
+        const highestBid = await getHighestBidForCrop(crop.id);
+        if (highestBid) {
+            console.log(`Current highest bid for crop ${crop.id}:`, highestBid);
+            
+            // Update the state with this highest bid
+            setCropHighestBids(prevBids => ({
+                ...prevBids,
+                [crop.id]: highestBid
+            }));
+        }
+        
+        setShowModal(true);
+    };
+
+    const closeModal = () => {
+        setShowModal(false);
+        setSelectedCrop(null);
+        setPurchaseQuantity("");
+        setRequestMessage("");
+    };
+
+    const handleTabChange = (event, newValue) => {
+        try {
+            console.log("Tab changed to:", newValue);
+
+            // Reset emergency mode when switching tabs
+            setEmergencyTabMode(false);
+
+            // Reset any filters or search terms when switching tabs
+            setSearchTerm("");
+            
+            // Update the tab value - our useEffect will handle the data loading
+        setTabValue(newValue);
+            
+            // Save the current tab in localStorage for persistence
+            localStorage.setItem('buyerDashboardActiveTab', newValue.toString());
+        } catch (error) {
+            console.error("Error handling tab change:", error);
+            setSnackbar({
+                open: true,
+                message: "Error changing tabs. Please refresh the page.",
+                severity: 'error'
+            });
+        }
+    };
+
+    const handleCloseSnackbar = () => {
+        setSnackbar({ ...snackbar, open: false });
+    };
+
+    const filteredCrops = crops.filter(crop =>
+        // Filter by search term
+        crop.cropName.toLowerCase().includes(searchTerm.toLowerCase()) && 
+        // Also filter out crops with zero quantity
+        crop.quantity && crop.quantity.toString() !== "0"
+    );
+
+    // Add this function after loadBuyerProfile 
+    const getRemovedCropIdsFromLocalStorage = () => {
+        try {
+            const storedRemovedCrops = localStorage.getItem('removedCrops');
+            if (storedRemovedCrops) {
+                const removedCropsObj = JSON.parse(storedRemovedCrops);
+                
+                // Convert the object to an array of crop IDs if it's in object format
+                if (typeof removedCropsObj === 'object' && !Array.isArray(removedCropsObj)) {
+                    return Object.keys(removedCropsObj).filter(id => removedCropsObj[id]);
+                } else if (Array.isArray(removedCropsObj)) {
+                    return removedCropsObj;
+                }
+            }
+        } catch (error) {
+            console.error("Error loading removed crops from localStorage:", error);
+        }
+        return [];
+    };
+
+    // Update fetchListings to use the removed crops from localStorage
+    const fetchListings = async () => {
+        try {
+            if (!contract || !contract.methods) {
+                console.error("Contract not initialized in fetchListings");
+                return;
+            }
+            
+            // Get removed crop IDs from localStorage
+            const removedCropIds = getRemovedCropIdsFromLocalStorage();
+            console.log("BuyerDashboard - Removed crop IDs from localStorage:", removedCropIds);
+            
+            console.log("Fetching all listings with contract:", contract);
+            const listings = await contract.methods.getAllListings().call({from: localAccount});
+            console.log("Raw listings from contract:", listings);
+            
+            // Double-check removedCropIds again for the most up-to-date list
+            const freshRemovedCropIds = getRemovedCropIdsFromLocalStorage();
+            
+            // Filter out listings with zero quantity and removed crops
+            const filteredListings = listings.filter(listing => {
+                const cropId = listing.cropID.toString();
+                const isZeroQuantity = listing.quantity && listing.quantity.toString() === "0";
+                const isInRemovedList = freshRemovedCropIds.includes(cropId);
+                
+                if (isZeroQuantity) {
+                    console.log(`BuyerDashboard - Filtering out zero-quantity crop ${cropId} (${listing.cropName})`);
+                }
+                
+                if (isInRemovedList) {
+                    console.log(`BuyerDashboard - Filtering out removed crop ${cropId} (${listing.cropName}) from localStorage`);
+                }
+                
+                // Only keep crops with quantity > 0 and not in removed list
+                return !isZeroQuantity && !isInRemovedList;
+            });
+            
+            console.log("BuyerDashboard - Filtered listings (removed zero quantity and removed crops):", filteredListings);
+            
+            // Enrich the listings with additional data
+            const enrichedListings = await Promise.all(filteredListings.map(async (listing) => {
+                // Get farmer name
+                let farmerName = "Unknown Farmer";
+                try {
+                    farmerName = await getFarmerName(listing.farmer);
+                } catch (error) {
+                    console.error("Error getting farmer name:", error);
+                }
+                
+                // Convert price from wei to ether
+                const priceInEth = window.web3 ? window.web3.utils.fromWei(listing.price, 'ether') : '0';
+                
+                // Get image URL if available
+                const imageUrl = listing.imageCID 
+                    ? getIPFSGatewayURL(listing.imageCID) 
+                    : null;
+                
+                return {
+                    ...listing,
+                    farmerName,
+                    priceInEth,
+                    imageUrl
+                };
+            }));
+            
+            console.log("BuyerDashboard - Enriched listings:", enrichedListings);
+            
+            // Final check to ensure no removed crops slip through
+            const finalFilteredListings = enrichedListings.filter(listing => {
+                const cropId = listing.cropID.toString();
+                return !freshRemovedCropIds.includes(cropId);
+            });
+            
+            // Compare counts to see if any were filtered
+            if (finalFilteredListings.length < enrichedListings.length) {
+                console.log(`BuyerDashboard - Final filter removed ${enrichedListings.length - finalFilteredListings.length} listings`);
+            }
+            
+            setCrops(finalFilteredListings);
+            
+            // After fetching crops, also fetch highest bids for each crop
+            const highestBidsMap = {};
+            for (const crop of finalFilteredListings) {
+                const highestBid = await getHighestBidForCrop(crop.id);
+                if (highestBid) {
+                    highestBidsMap[crop.id] = highestBid;
+                }
+            }
+            setCropHighestBids(highestBidsMap);
+            
+            // After loading crops, fetch highest bids for each crop
+            if (finalFilteredListings && finalFilteredListings.length > 0) {
+                await Promise.all(finalFilteredListings.map(async (crop) => {
+                    try {
+                        const highestBid = await getHighestBidForCrop(crop.id);
+                        if (highestBid) {
+                            console.log(`Fetched highest bid for crop ${crop.id}:`, highestBid);
+                            setCropHighestBids(prev => ({
+                                ...prev,
+                                [crop.id]: highestBid
+                            }));
+                        }
+                    } catch (error) {
+                        console.error(`Error fetching highest bid for crop ${crop.id}:`, error);
+                    }
+                }));
+            }
+        } catch (error) {
+            console.error("Error fetching listings:", error);
+            setSnackbar({
+                open: true,
+                message: "Error fetching crop listings. Please refresh and try again.",
+                severity: 'error'
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const initializeContract = async () => {
+        setLoading(true);
+        try {
+            // Check if web3 is injected by MetaMask
+            if (!window.ethereum) {
+                throw new Error("Please install MetaMask to use this app.");
+            }
+
+            // Initialize web3
+            const web3Instance = new Web3(window.ethereum);
+            setWeb3(web3Instance);
+            window.web3 = web3Instance; // For global access
+
+            // Request account access
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            if (!accounts || accounts.length === 0) {
+                throw new Error("No accounts found. Please check MetaMask.");
+            }
+            
+            // Set local account
+            const account = accounts[0];
+            setLocalAccount(account);
+            console.log("Connected account:", account);
+
+            // Create contract instance
+            const contractInstance = new web3Instance.eth.Contract(
+                CONTRACT_ABI,
+                CONTRACT_ADDRESS
+            );
+            
+            if (!contractInstance || !contractInstance.methods) {
+                throw new Error("Failed to initialize contract.");
+            }
+            
+            // Log available methods for debugging
+            console.log("Contract methods:", Object.keys(contractInstance.methods));
+            setContract(contractInstance);
+            
+            // Fetch user profile data
+            try {
+                await fetchUserProfile(contractInstance, account);
+            } catch (profileError) {
+                console.error("Error fetching user profile:", profileError);
+                // Continue even if profile fetch fails
+            }
+            
+            console.log("Contract initialized successfully");
+            
+            return contractInstance;
+        } catch (error) {
+            console.error("Error initializing contract:", error);
+            setSnackbar({
+                open: true,
+                message: `Error initializing: ${error.message}`,
+                severity: 'error'
+            });
+            return null;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Function to fetch buyer's completed purchases
+    const fetchBuyerOrders = async () => {
+        try {
+            if (!contract || !contract.methods) {
+                console.error("Contract not initialized in fetchBuyerOrders");
+                setBuyerOrders([]); // Use setBuyerOrders instead of setDeliveries
+                return [];
+            }
+            
+            console.log("Fetching buyer orders and checking deliveries...");
+            
+            // First check for pending deliveries using our debug function
+            let pendingDeliveries = [];
+            try {
+                pendingDeliveries = await debugPendingDeliveries() || [];
+            } catch (debugError) {
+                console.error("Error in debugPendingDeliveries, continuing with empty list:", debugError);
+            }
+            
+            // Use getBuyerRequests to get completed requests (status 3)
+            let requests = [];
+            try {
+                requests = await contract.methods.getBuyerRequests().call({ from: localAccount });
+            console.log("All buyer requests:", requests);
+            } catch (requestsError) {
+                console.error("Error fetching buyer requests:", requestsError);
+                requests = [];
+            }
+            
+            // Filter for completed requests (status 3)
+            const completedRequests = requests.filter(req => req.status && req.status.toString() === "3");
+            console.log("Completed purchases:", completedRequests);
+            
+            // Map to track if each requestId has a pending delivery
+            const deliveryStatusMap = {};
+            
+            // If we have pendingDeliveries from the debug function, check which requests have deliveries
+            if (pendingDeliveries && pendingDeliveries.length > 0) {
+                // Map cropIDs to track which crops have pending deliveries
+                pendingDeliveries.forEach(delivery => {
+                    deliveryStatusMap[delivery.cropID] = true;
+                });
+                console.log("Delivery status map by cropID:", deliveryStatusMap);
+            }
+            
+            let enrichedOrders = [];
+            // Only attempt to enrich if we have completedRequests
+            if (completedRequests && completedRequests.length > 0) {
+                try {
+            // Enrich with crop and farmer information
+                    enrichedOrders = await Promise.all(completedRequests.map(async (order) => {
+                        try {
+                // Get farmer name
+                            let farmerName = "Unknown Farmer";
+                            try {
+                                farmerName = await getFarmerName(order.farmer) || "Unknown Farmer";
+                            } catch (nameError) {
+                                console.error("Error getting farmer name:", nameError);
+                            }
+                
+                // Find the crop name from the listings if possible
+                let cropName = `Crop #${order.cropID}`;
+                for (const crop of crops) {
+                    if (crop.cropID && crop.cropID.toString() === order.cropID.toString()) {
+                        cropName = crop.cropName;
+                        break;
+                    }
+                }
+                
+                // Calculate total amount held in escrow (price * quantity)
+                            let totalAmount = "0";
+                            try {
+                                totalAmount = web3.utils.toBN(order.price)
+                    .mul(web3.utils.toBN(order.quantity))
+                    .toString();
+                            } catch (calcError) {
+                                console.error("Error calculating total amount:", calcError);
+                                totalAmount = "0";
+                            }
+
+                            // Calculate price in ETH for display
+                            let priceInEth = "0";
+                            try {
+                                priceInEth = web3.utils.fromWei(order.price, "ether");
+                            } catch (priceError) {
+                                console.error("Error calculating ETH price:", priceError);
+                            }
+
+                            // Format timestamp if available
+                            let formattedTimestamp = "Unknown";
+                            if (order.timestamp) {
+                                try {
+                                    const date = new Date(parseInt(order.timestamp) * 1000);
+                                    formattedTimestamp = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+                                } catch (dateError) {
+                                    console.error("Error formatting date:", dateError);
+                                }
+                            }
+                
+                // Check if this order's cropID has a pending delivery
+                const hasPendingDelivery = deliveryStatusMap[order.cropID] || false;
+                
+                return {
+                    ...order,
+                    cropName,
+                    farmerName,
+                    amountHeld: totalAmount,
+                                isDelivered: !hasPendingDelivery, // If no pending delivery exists, assume it's been delivered
+                                priceInEth,
+                                formattedTimestamp,
+                                orderType: 'completed',
+                                statusText: hasPendingDelivery ? "Awaiting Delivery" : "Completed"
+                            };
+                        } catch (orderError) {
+                            console.error("Error processing order:", orderError, order);
+                            // Return a minimal valid order to not break the Promise.all
+                            return {
+                                ...order,
+                                cropName: `Crop #${order.cropID || 'Unknown'}`,
+                                farmerName: "Unknown Farmer",
+                                amountHeld: "0",
+                                isDelivered: false,
+                                priceInEth: "0",
+                                formattedTimestamp: "Unknown",
+                                orderType: 'completed',
+                                statusText: "Unknown Status"
+                            };
+                        }
+                    }));
+                } catch (enrichError) {
+                    console.error("Error enriching orders:", enrichError);
+                    // Create minimal valid orders if enrichment fails
+                    enrichedOrders = completedRequests.map(order => ({
+                        ...order,
+                        cropName: `Crop #${order.cropID || 'Unknown'}`,
+                        farmerName: "Unknown Farmer",
+                        amountHeld: "0",
+                        isDelivered: false,
+                        priceInEth: "0",
+                        formattedTimestamp: "Unknown",
+                        orderType: 'completed',
+                        statusText: "Unknown Status"
+                    }));
+                }
+            }
+            
+            console.log("Enriched orders:", enrichedOrders);
+            
+            // Create an array of all orders (both pending deliveries and completed orders)
+            const allOrders = [...enrichedOrders];
+            
+            // Set these to state using new state variable
+            setBuyerOrders(allOrders);
+            
+            // For backward compatibility
+            setDeliveries(allOrders);
+            
+            return allOrders;
+        } catch (error) {
+            console.error("Error fetching buyer orders:", error);
+            setBuyerOrders([]);
+            setDeliveries([]);
+            return []; // Always return something to unblock promises
+        }
+    };
+
+    // Debug function to log contract state for debugging
+    const debugContractState = () => {
+        try {
+            if (!contract || !contract.methods) {
+                console.log("Contract not initialized for debugging");
+                return;
+            }
+            
+            console.log("Contract address:", CONTRACT_ADDRESS);
+            console.log("Connected account:", localAccount);
+            console.log("Available contract methods:", Object.keys(contract.methods));
+            console.log("Current tab:", tabValue);
+            console.log("Number of completed purchases:", deliveries.length);
+        } catch (error) {
+            console.error("Error in debug function:", error);
+        }
+    };
+
+    // Function to check transaction and contract permissions
+    const checkDeliveryPermission = async (delivery) => {
+        try {
+            setLoading(true);
+            console.log("Checking delivery permissions for:", delivery);
+            
+            // Get the transaction count before sending to see if there's a nonce issue
+            const nonce = await web3.eth.getTransactionCount(localAccount);
+            console.log("Current account nonce:", nonce);
+            
+            // Check if the contract has the delivery
+            console.log("Checking if contract recognizes this delivery...");
+            const buyerRequests = await contract.methods.getBuyerRequests().call({from: localAccount});
+            console.log("All buyer requests:", buyerRequests);
+            
+            // Find the specific request
+            const matchingRequest = buyerRequests.find(req => req.cropID.toString() === delivery.cropID.toString());
+            console.log("Found matching request:", matchingRequest);
+            
+            if (!matchingRequest) {
+                throw new Error("This delivery doesn't exist in your requests. It may have been completed already.");
+            }
+            
+            // Check if status is correct (should be 3 for completed purchase)
+            console.log("Request status:", matchingRequest.status.toString());
+            if (matchingRequest.status.toString() !== "3") {
+                throw new Error(`Cannot confirm delivery - request status is ${matchingRequest.status.toString()} instead of 3 (completed purchase).`);
+            }
+            
+            // Check contract balance to see if there's funds to release
+            const escrowBalance = await contract.methods.escrowBalances(localAccount).call();
+            console.log("Escrow balance for account:", escrowBalance);
+            
+            // Get gas price for transaction
+            const gasPrice = await web3.eth.getGasPrice();
+            console.log("Current gas price:", gasPrice);
+            
+            // Estimate gas for the transaction to see if it will fail
+            try {
+                const gasEstimate = await contract.methods.confirmDelivery(delivery.cropID).estimateGas({from: localAccount});
+                console.log("Gas estimate for confirmDelivery:", gasEstimate);
+                console.log("This suggests the transaction should succeed!");
+                
+                return {
+                    canConfirm: true,
+                    message: "Delivery can be confirmed. Try with adjusted gas settings."
+                };
+            } catch (gasError) {
+                console.error("Gas estimation failed:", gasError);
+                return {
+                    canConfirm: false,
+                    message: "Transaction would fail. The contract may not allow this operation at this time."
+                };
+            }
+        } catch (error) {
+            console.error("Permission check error:", error);
+            return {
+                canConfirm: false,
+                message: error.message
+            };
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Update the function to use proper delays and multi-stage confirmation
+    const createThenConfirmDelivery = async (purchase) => {
+        try {
+            setLoading(true);
+            console.log("Creating delivery for purchase:", purchase);
+
+            // First show an informative message to the user about what's happening
+            setSnackbar({
+                open: true,
+                message: `Processing payment for ${purchase.cropName}. Please confirm the transaction in your wallet.`,
+                severity: 'info',
+                duration: 8000
+            });
+            
+            // Check available methods
+            const methods = Object.keys(contract.methods);
+            console.log("Available methods:", methods);
+            
+            // Check if there's a custom bid price for this request
+            const customBid = getAcceptedCustomBidPrice(purchase.requestId);
+            
+            // Use custom price if available, otherwise use the original price
+            let actualPriceInWei = purchase.price;
+            let priceExplanation = "original listing price";
+            
+            if (customBid && customBid.customPriceWei) {
+                actualPriceInWei = customBid.customPriceWei;
+                priceExplanation = `custom bid price (${customBid.customPriceEth} ETH)`;
+                console.log(`Using custom bid price of ${customBid.customPriceEth} ETH instead of original price`);
+            }
+            
+            // First, calculate total price
+            const totalPrice = web3.utils.toBN(actualPriceInWei)
+                .mul(web3.utils.toBN(purchase.quantity))
+                .toString();
+            
+            console.log(`Total price in wei (using ${priceExplanation}):`, totalPrice);
+            console.log("Total price in ETH:", web3.utils.fromWei(totalPrice, 'ether'));
+            
+            // Try completePurchase first
+            if (contract.methods.completePurchase) {
+                
+                    console.log("Attempting to complete purchase with ID:", purchase.requestId);
+                    
+                    // Check if the purchase is already completed
+                    const buyerRequests = await contract.methods.getBuyerRequests().call({from: localAccount});
+                    const targetRequest = buyerRequests.find(req => 
+                        req.requestId.toString() === purchase.requestId.toString()
+                    );
+                    
+                    if (targetRequest && targetRequest.status.toString() === "3") {
+                        console.log("This purchase is already completed. Switching to direct confirmation.");
+                        setSnackbar({
+                            open: true,
+                            message: "This purchase is already completed. Attempting to confirm delivery directly...",
+                            severity: 'info'
+                        });
+                        
+                        // Try to directly confirm the delivery
+                        setTimeout(() => {
+                            confirmDelivery(purchase.cropID);
+                        }, 1000);
+                        
+                        return true;
+                    }
+                    
+                    // Add more gas and higher gas price for reliable execution
+                    const gasPrice = await web3.eth.getGasPrice();
+                    const adjustedGasPrice = Math.floor(parseInt(gasPrice) * 1.5).toString(); // 50% higher
+                    
+                // Try to estimate gas for this transaction to ensure it will succeed
+                try {
+                    const gasEstimate = await contract.methods.completePurchase(purchase.requestId).estimateGas({
+                        from: localAccount,
+                        value: totalPrice
+                    });
+                    
+                    console.log("Gas estimate for completePurchase:", gasEstimate);
+                    const gasLimit = Math.floor(gasEstimate * 2); // Double the estimated gas
+                    
+                    const result = await contract.methods.completePurchase(purchase.requestId).send({
+                        from: localAccount,
+                        value: totalPrice,
+                        gas: gasLimit,
+                        gasPrice: adjustedGasPrice
+                    });
+                    
+                    console.log("Purchase completion successful:", result);
+                    
+                    // If we used a custom bid price, remove it from localStorage
+                    if (customBid) {
+                        try {
+                            const acceptedCustomBids = JSON.parse(localStorage.getItem('acceptedCustomBids') || '{}');
+                            delete acceptedCustomBids[purchase.requestId];
+                            localStorage.setItem('acceptedCustomBids', JSON.stringify(acceptedCustomBids));
+                            console.log(`Removed custom bid for request ${purchase.requestId} from localStorage after completion`);
+                        } catch (error) {
+                            console.error("Error updating localStorage after completing purchase:", error);
+                        }
+                    }
+                    
+                    // Show success message with clear next steps
+                    setSnackbar({
+                        open: true,
+                        message: customBid 
+                            ? `Purchase completed successfully at custom bid price of ${customBid.customPriceEth} ETH!`
+                            : "Purchase completed successfully! Payment sent to escrow.",
+                        severity: 'success',
+                        duration: 10000,
+                        action: (
+                            <Button 
+                                color="inherit" 
+                                size="small"
+                                onClick={() => {
+                                    // Set tab value to the Orders tab (index 2)
+                                    setTabValue(2);
+                                    // Automatically scroll to the order section
+                                    setTimeout(() => {
+                                        // Try to find this specific order in the table
+                                        const orderElements = document.querySelectorAll(`[data-crop-id="${purchase.cropID}"]`);
+                                        if (orderElements.length > 0) {
+                                            orderElements[0].scrollIntoView({ behavior: 'smooth' });
+                                        }
+                                    }, 500);
+                                }}
+                            >
+                                GO TO MY ORDERS
+                            </Button>
+                        )
+                    });
+                    
+                    // Show a more detailed alert about next steps
+                    setTimeout(() => {
+                        alert("Payment complete! What happens next:\n\n" +
+                            "1. The farmer will be notified to prepare your crop for delivery\n" +
+                            "2. Once you receive your crop, return to the 'My Purchases' tab\n" +
+                            "3. Find this purchase and click 'Confirm Delivery'\n" +
+                            "4. This will release payment to the farmer and complete the transaction\n\n" +
+                            "You'll be redirected to the My Purchases tab now.");
+                        
+                        // Navigate to the orders tab
+                        setTabValue(2);
+                    }, 1000);
+                    
+                    // Refresh data
+                    await fetchPurchaseRequests();
+                    await fetchBuyerOrders();
+                    
+                    return true;
+                } catch (error) {
+                    console.error("Error completing purchase:", error);
+                    
+                    // Provide a more helpful error message
+                    let errorMessage = error.message;
+                    if (error.message.includes("insufficient funds")) {
+                        errorMessage = "You don't have enough ETH to complete this purchase. Please add more funds to your wallet.";
+                    } else if (error.message.includes("gas")) {
+                        errorMessage = "Transaction failed due to gas issues. Please try again with a higher gas limit.";
+                        } else if (error.message.includes("revert")) {
+                        errorMessage = "Transaction was reverted by the blockchain. This might be because the purchase request is no longer valid.";
+                    }
+                    
+                    setSnackbar({
+                        open: true,
+                        message: `Failed to complete purchase: ${errorMessage}`,
+                        severity: 'error',
+                        duration: 15000
+                    });
+                    
+                    return false;
+                }
+            } else {
+                console.error("completePurchase method not found in contract");
+                setSnackbar({
+                    open: true,
+                    message: "Error: completePurchase method not found in the contract",
+                    severity: 'error'
+                });
+                return false;
+            }
+        } catch (error) {
+            console.error("Unexpected error in createThenConfirmDelivery:", error);
+            setSnackbar({
+                open: true,
+                message: `An unexpected error occurred: ${error.message}`,
+                severity: 'error'
+            });
+            return false;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Debug function to check for pending deliveries and show details
+    const debugPendingDeliveries = async () => {
+        try {
+            if (!contract || !contract.methods) {
+                console.log("Contract not initialized for debugging deliveries");
+                return [];
+            }
+            
+            console.log("Checking for pending deliveries...");
+            
+            // Check if getPendingDeliveries method exists
+            if (contract.methods.getPendingDeliveries) {
+                try {
+                    const pendingDeliveries = await contract.methods.getPendingDeliveries().call({from: localAccount});
+                    console.log("Pending deliveries from contract:", pendingDeliveries);
+                    
+                    if (pendingDeliveries && pendingDeliveries.length > 0) {
+                        console.log("Found pending deliveries:", pendingDeliveries.length);
+                        
+                        // Log details of each pending delivery
+                        pendingDeliveries.forEach((delivery, index) => {
+                            console.log(`Delivery ${index+1}:`, {
+                                cropID: delivery.cropID,
+                                quantity: delivery.quantity,
+                                buyer: delivery.buyer,
+                                farmer: delivery.farmer,
+                                amountHeld: web3.utils.fromWei(delivery.amountHeld, 'ether') + ' ETH',
+                                delivered: delivery.delivered
+                            });
+                        });
+                        
+                        return pendingDeliveries;
+                    } else {
+                        console.log("No pending deliveries found");
+                        return [];
+                    }
+                } catch (error) {
+                    console.error("Error fetching pending deliveries:", error);
+                    return [];
+                }
+            } else {
+                console.log("getPendingDeliveries method not available");
+            }
+            
+            // Fallback: check buyer requests for completed purchases
+            try {
+            console.log("Checking buyer requests for completed purchases that may need delivery...");
+            const buyerRequests = await contract.methods.getBuyerRequests().call({from: localAccount});
+            const completedPurchases = buyerRequests.filter(req => req.status.toString() === "3");
+            
+            console.log("Completed purchases from requests:", completedPurchases);
+            if (completedPurchases.length > 0) {
+                completedPurchases.forEach((purchase, index) => {
+                        try {
+                    console.log(`Completed purchase ${index+1}:`, {
+                        requestId: purchase.requestId,
+                        cropID: purchase.cropID,
+                        quantity: purchase.quantity,
+                        farmer: purchase.farmer,
+                        price: web3.utils.fromWei(purchase.price, 'ether') + ' ETH per unit',
+                        total: web3.utils.fromWei(
+                            web3.utils.toBN(purchase.price).mul(web3.utils.toBN(purchase.quantity)), 
+                            'ether'
+                        ) + ' ETH'
+                    });
+                        } catch (logError) {
+                            console.error("Error logging purchase details:", logError);
+                        }
+                    });
+                    
+                    // Convert completed purchases to a delivery-like format
+                    const pendingDeliveries = completedPurchases.map(purchase => ({
+                        cropID: purchase.cropID,
+                        quantity: purchase.quantity,
+                        buyer: purchase.buyer,
+                        farmer: purchase.farmer,
+                        amountHeld: web3.utils.toBN(purchase.price).mul(web3.utils.toBN(purchase.quantity)).toString(),
+                        delivered: false,
+                        requestId: purchase.requestId
+                    }));
+                    
+                    return pendingDeliveries;
+                }
+                return [];
+            } catch (fallbackError) {
+                console.error("Error in fallback delivery check:", fallbackError);
+                return [];
+            }
+        } catch (error) {
+            console.error("Error in debugPendingDeliveries:", error);
+            return [];
+        }
+    };
+
+    // Add this function at the end of the BuyerDashboard component, before the return statement
+
+    // Utility function to analyze delivery issues
+    const analyzeDeliveryIssues = async () => {
+        try {
+            if (!contract || !web3) {
+                console.error("Contract or web3 not initialized");
+                return;
+            }
+            
+            console.log("=== DELIVERY ANALYSIS START ===");
+            console.log("Connected account:", localAccount);
+            
+            // Get buyer requests to understand purchase status
+            const buyerRequests = await contract.methods.getBuyerRequests().call({from: localAccount});
+            console.log("Buyer requests:", buyerRequests);
+            
+            // Get pending deliveries
+            const pendingDeliveries = await contract.methods.getPendingDeliveries().call({from: localAccount});
+            console.log("Pending deliveries:", pendingDeliveries);
+            
+            // Get escrow balance
+            const escrowBalance = await contract.methods.escrowBalances(localAccount).call();
+            console.log("Escrow balance:", escrowBalance, "wei", web3.utils.fromWei(escrowBalance, 'ether'), "ETH");
+            
+            // Check account balance
+            const accountBalance = await web3.eth.getBalance(localAccount);
+            console.log("Account balance:", accountBalance, "wei", web3.utils.fromWei(accountBalance, 'ether'), "ETH");
+            
+            // Gas price analysis
+            const gasPrice = await web3.eth.getGasPrice();
+            console.log("Current gas price:", gasPrice, "wei", web3.utils.fromWei(gasPrice, 'gwei'), "gwei");
+            
+            // Analyze each pending delivery
+            if (pendingDeliveries.length > 0) {
+                console.log("Detailed analysis of pending deliveries:");
+                for (let i = 0; i < pendingDeliveries.length; i++) {
+                    const delivery = pendingDeliveries[i];
+                    console.log(`\nDelivery ${i+1}:`);
+                    console.log("Crop ID:", delivery.cropID.toString());
+                    console.log("Quantity:", delivery.quantity.toString());
+                    console.log("Amount held in escrow:", web3.utils.fromWei(delivery.amountHeld, 'ether'), "ETH");
+                    console.log("Delivered status:", delivery.delivered);
+                    
+                    // Try to estimate gas for confirming this delivery
+                    try {
+                        const gasEstimate = await contract.methods.confirmDelivery(delivery.cropID).estimateGas({
+                            from: localAccount
+                        });
+                        console.log("Gas estimate for confirmDelivery:", gasEstimate);
+                        console.log("This delivery should be confirmable!");
+                    } catch (error) {
+                        console.error("Gas estimation failed:", error.message);
+                        console.log("This delivery might not be confirmable due to contract conditions.");
+                    }
+                }
+            } else {
+                console.log("No pending deliveries found. All deliveries might already be confirmed.");
+            }
+            
+            console.log("=== DELIVERY ANALYSIS END ===");
+            
+            setSnackbar({
+                open: true,
+                message: "Delivery analysis logged to console. Check browser developer tools.",
+                severity: 'info'
+            });
+        } catch (error) {
+            console.error("Error analyzing deliveries:", error);
+            setSnackbar({
+                open: true,
+                message: `Error analyzing deliveries: ${error.message}`,
+                severity: 'error'
+            });
+        }
+    };
+
+    // Add this effect to periodically check localStorage for removed crops
+    useEffect(() => {
+        // Check localStorage for removed crops on initial load and periodically
+        const checkRemovedCrops = () => {
+            console.log("Checking localStorage for removed crops...");
+            const removedCropIds = getRemovedCropIdsFromLocalStorage();
+            console.log("Current removed crop IDs:", removedCropIds);
+            
+            // If we have crops loaded and removedCropIds, filter them out
+            if (crops.length > 0 && removedCropIds.length > 0) {
+                // Filter out any crops that should be removed
+                setCrops(currentCrops => 
+                    currentCrops.filter(crop => 
+                        !removedCropIds.includes(crop.cropID.toString())
+                    )
+                );
+            }
+        };
+        
+        // Initial check
+        checkRemovedCrops();
+        
+        // Set up periodic checks to keep the view synchronized
+        const intervalId = setInterval(checkRemovedCrops, 5000); // Check every 5 seconds
+        
+        return () => {
+            clearInterval(intervalId); // Clean up on unmount
+        };
+    }, [crops.length]); // Re-run when crops.length changes
+
+    // Add a listener for storage events to detect changes in removedCrops
+    useEffect(() => {
+        // This will handle updates from other tabs/windows
+        const handleStorageChange = (event) => {
+            if (event.key === 'removedCrops') {
+                console.log('Detected change in removedCrops from another component:', event.newValue);
+                const newRemovedCropIds = event.newValue ? JSON.parse(event.newValue) : [];
+                
+                // Filter any crops from the current view that are now in the removed list
+                if (crops.length > 0) {
+                    setCrops(prevCrops => prevCrops.filter(crop => 
+                        !newRemovedCropIds.includes(crop.cropID.toString())
+                    ));
+                }
+            }
+        };
+        
+        // Add event listener
+        window.addEventListener('storage', handleStorageChange);
+        
+        // Clean up on unmount
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+        };
+    }, [crops]);
+
+    // Add a function to manually check for removed crops changes (useful for same-window updates)
+    const checkForRemovedCropsChanges = () => {
+        try {
+            const removedCropIds = getRemovedCropIdsFromLocalStorage();
+            console.log("Current removed crop IDs:", removedCropIds);
+            
+            // Filter any crops from the current view that are in the removed list
+            if (crops.length > 0) {
+                setCrops(prevCrops => {
+                    const filteredCrops = prevCrops.filter(crop => 
+                        !removedCropIds.includes(crop.cropID.toString())
+                    );
+                    
+                    // If we filtered any crops, log them
+                    if (filteredCrops.length < prevCrops.length) {
+                        console.log(`Filtered out ${prevCrops.length - filteredCrops.length} removed crops`);
+                    }
+                    
+                    return filteredCrops;
+                });
+            }
+        } catch (error) {
+            console.error("Error checking for removed crops changes:", error);
+        }
+    };
+
+    // Add this to the existing fetchListings useEffect dependency array
+    useEffect(() => {
+        const intervalId = setInterval(() => {
+            // Periodically check for removed crops changes
+            checkForRemovedCropsChanges();
+        }, 3000); // Check every 3 seconds
+        
+        return () => clearInterval(intervalId);
+    }, [crops]);
+
+    // Add a listener for the custom cropRemoved event
+    useEffect(() => {
+        const handleCropRemoved = (event) => {
+            const { cropId, timestamp } = event.detail;
+            console.log(`Received cropRemoved event for crop ID ${cropId} at ${new Date(timestamp).toLocaleTimeString()}`);
+            
+            // Immediately filter out the removed crop from the current view
+            if (crops.length > 0) {
+                setCrops(prevCrops => prevCrops.filter(crop => 
+                    crop.cropID.toString() !== cropId
+                ));
+                
+                // Also update the search and filter UI to reflect the changes
+                setSnackbar({
+                    open: true,
+                    message: "A crop listing has been removed by the farmer",
+                    severity: 'info'
+                });
+            }
+        };
+        
+        // Add event listener for the custom event
+        window.addEventListener('cropRemoved', handleCropRemoved);
+        
+        // Clean up on unmount
+        return () => {
+            window.removeEventListener('cropRemoved', handleCropRemoved);
+        };
+    }, [crops]);
+
+    // Add this function to initialize and sync removed crops on component mount
+    const initSyncRemovedCrops = () => {
+        try {
+            const removedCropIds = getRemovedCropIdsFromLocalStorage();
+            console.log("BuyerDashboard: Initial sync of removed crop IDs:", removedCropIds);
+            
+            if (removedCropIds.length > 0 && crops.length > 0) {
+                // Filter out any removed crops from current view
+                const initialCrops = crops.filter(crop => !removedCropIds.includes(crop.cropID.toString()));
+                
+                // Only update if we actually filtered something
+                if (initialCrops.length !== crops.length) {
+                    console.log(`BuyerDashboard: Initially filtered out ${crops.length - initialCrops.length} removed crops`);
+                    setCrops(initialCrops);
+                }
+            }
+        } catch (error) {
+            console.error("Error in initial removed crops sync:", error);
+        }
+    };
+
+    // Call this function from an initial useEffect
+    useEffect(() => {
+        // Call immediately on mount
+        initSyncRemovedCrops();
+        
+        // And also after crops have been loaded
+        if (crops.length > 0) {
+            initSyncRemovedCrops();
+        }
+    }, [crops.length === 0, getRemovedCropIdsFromLocalStorage]);
+
+    // Add a function to clear and reset localStorage for removed crops
+    const resetAndRefreshRemovedCrops = () => {
+        try {
+            // Get the raw value from localStorage
+            const stored = localStorage.getItem('removedCrops');
+            console.log("Current stored removedCrops:", stored);
+            
+            // Parse and re-save to ensure proper format
+            const removedCropIds = getRemovedCropIdsFromLocalStorage();
+            console.log("Parsed removedCropIds:", removedCropIds);
+            
+            // Force update localStorage with a clean array
+            localStorage.setItem('removedCrops', JSON.stringify(removedCropIds));
+            console.log("Reset and refreshed removedCrops in localStorage");
+            
+            // Apply filtering immediately to current view
+            if (crops.length > 0) {
+                setCrops(prevCrops => {
+                    const filteredCrops = prevCrops.filter(crop => 
+                        !removedCropIds.includes(crop.cropID.toString())
+                    );
+                    
+                    if (filteredCrops.length < prevCrops.length) {
+                        console.log(`Filtered out ${prevCrops.length - filteredCrops.length} removed crops during reset`);
+                    }
+                    
+                    return filteredCrops;
+                });
+            }
+            
+            // Display a notification
+            setSnackbar({
+                open: true,
+                message: "Synchronized removed crops data",
+                severity: 'info'
+            });
+        } catch (error) {
+            console.error("Error resetting removed crops:", error);
+        }
+    };
+
+    // Call this function on component mount
+    useEffect(() => {
+        // Reset and refresh removed crops data on mount
+        resetAndRefreshRemovedCrops();
+        
+        // And set up an interval to check periodically
+        const intervalId = setInterval(() => {
+            checkForRemovedCropsChanges();
+        }, 5000); // Check every 5 seconds
+        
+        return () => clearInterval(intervalId);
+    }, []);
+
+    // Add a function to check for newly accepted requests and notify buyers
+    const checkForAcceptedRequests = async () => {
+        try {
+            if (!contract || !web3 || !localAccount) return;
+            
+            console.log("Checking for recently accepted purchase requests...");
+            
+            // Get all buyer requests
+            const buyerRequests = await contract.methods.getBuyerRequests().call({from: localAccount});
+            console.log("All buyer requests:", buyerRequests);
+            
+            // Filter for accepted requests
+            const acceptedRequests = buyerRequests.filter(req => req.status.toString() === "1"); // Status 1 = Accepted
+            console.log("Accepted requests:", acceptedRequests);
+            
+            // Get already notified requests from localStorage
+            const notifiedRequests = JSON.parse(localStorage.getItem('notifiedAcceptedRequests') || '[]');
+            
+            // Find newly accepted requests (accepted but not yet notified)
+            const newlyAcceptedRequests = acceptedRequests.filter(
+                req => !notifiedRequests.includes(req.requestId.toString())
+            );
+            
+            console.log("Newly accepted requests:", newlyAcceptedRequests);
+            
+            if (newlyAcceptedRequests.length > 0) {
+                console.log("Found newly accepted requests:", newlyAcceptedRequests);
+                
+                // Set tab value to the Orders tab (index 1) - IMPORTANT: Changed to 1 to match the My Requests tab
+                setTabValue(1);
+                
+                // Automatically scroll to the accepted requests section
+                setTimeout(() => {
+                    const element = document.getElementById('accepted-requests-section');
+                    if (element) {
+                        element.scrollIntoView({ behavior: 'smooth' });
+                        // Add a highlight animation to draw attention
+                        element.style.animation = 'highlight-pulse 2s ease-in-out 3';
+                    }
+                }, 500);
+                
+                // Show notification for each newly accepted request
+                for (const request of newlyAcceptedRequests) {
+                    try {
+                        // Get crop name for better notification
+                        const cropDetails = await fetchCropDetails(request.cropID);
+                        const cropName = cropDetails ? cropDetails.name : `Crop #${request.cropID}`;
+                        
+                        // Show notification
+                        setSnackbar({
+                            open: true,
+                            message: `Your purchase request for ${cropName} has been accepted! Please complete the purchase to proceed with delivery.`,
+                            severity: 'success',
+                            duration: 10000, // Show for longer (10 seconds)
+                            action: (
+                                <Button 
+                                    color="inherit" 
+                                    size="small"
+                                    onClick={() => {
+                                        // Set tab value to the My Requests tab (index 1)
+                                        setTabValue(1);
+                                        // Automatically scroll to the accepted requests section
+                                        setTimeout(() => {
+                                            const element = document.getElementById('accepted-requests-section');
+                                            if (element) element.scrollIntoView({ behavior: 'smooth' });
+                                        }, 300);
+                                    }}
+                                >
+                                    COMPLETE PURCHASE
+                                </Button>
+                            )
+                        });
+                        
+                        // Add alert for extra visibility
+                        setTimeout(() => {
+                            alert(`Good news! Your purchase request for ${cropName} has been accepted by the farmer. You'll be redirected to complete the purchase and proceed with delivery.`);
+                        }, 1000);
+                        
+                        // Add to notified requests
+                        notifiedRequests.push(request.requestId.toString());
+                    } catch (error) {
+                        console.error("Error processing notification for request:", error);
+                    }
+                }
+                
+                // Save updated notified requests to localStorage
+                localStorage.setItem('notifiedAcceptedRequests', JSON.stringify(notifiedRequests));
+            }
+        } catch (error) {
+            console.error("Error checking for accepted requests:", error);
+        }
+    };
+
+    // Call the check function periodically and on tab changes
+    useEffect(() => {
+        // Check for accepted requests on initial load
+        checkForAcceptedRequests();
+        
+        // Set up interval to check periodically (every 30 seconds)
+        const intervalId = setInterval(checkForAcceptedRequests, 30000);
+        
+        return () => clearInterval(intervalId);
+    }, [contract, localAccount, web3]);
+
+    // Also check when user changes tabs
+    useEffect(() => {
+        if (tabValue === 2) { // When user is on Orders tab
+            checkForAcceptedRequests();
+        }
+    }, [tabValue]);
+
+    // Function to handle cancellation of a purchase request
+    const cancelPurchaseRequest = async (requestId) => {
+        try {
+            setLoading(true);
+            console.log("Cancelling purchase request with ID:", requestId);
+            
+            // Find the request in our current list
+            const requestToCancel = purchaseRequests.find(req => req.requestId === requestId);
+            
+            if (!requestToCancel) {
+                throw new Error("Request not found");
+            }
+            
+            // Different messages based on status
+            let confirmMessage = "";
+            let successMessage = "";
+            
+            if (requestToCancel.status.toString() === "0") {
+                // Pending request
+                confirmMessage = "Are you sure you want to cancel this pending purchase request? This will only hide it from your view, but it will still exist on the blockchain until the farmer rejects it.";
+                successMessage = "Purchase request marked as cancelled. It will be hidden from your dashboard.";
+            } else if (requestToCancel.status.toString() === "1") {
+                // Approved request
+                confirmMessage = "Are you sure you want to cancel this APPROVED purchase request? This will only hide it from your view. The farmer has already approved it and may be preparing your order. It's recommended to communicate with the farmer directly if possible.";
+                successMessage = "Approved purchase request marked as cancelled. It will be hidden from your dashboard.";
+            } else {
+                throw new Error("Only pending or approved requests can be cancelled");
+            }
+            
+            // Show confirmation dialog
+            const isConfirmed = window.confirm(confirmMessage);
+            
+            if (!isConfirmed) {
+                console.log("Cancellation aborted by user");
+                setLoading(false);
+                return;
+            }
+            
+            // Since we can't directly cancel on the blockchain (only farmers can respond to requests),
+            // we'll implement a client-side solution to hide cancelled requests
+            
+            // Get the current list of cancelled requests from localStorage
+            const cancelledRequests = JSON.parse(localStorage.getItem('cancelledRequests') || '{}');
+            
+            // Add this request to the cancelled list
+            cancelledRequests[requestId] = {
+                requestId: requestId,
+                cropName: requestToCancel.cropName,
+                farmerName: requestToCancel.farmerName,
+                status: requestToCancel.status.toString(),
+                timestamp: new Date().getTime()
+            };
+            
+            // Save back to localStorage
+            localStorage.setItem('cancelledRequests', JSON.stringify(cancelledRequests));
+            
+            // If we had a custom bid for this request, remove it from localStorage
+            try {
+                const bids = JSON.parse(localStorage.getItem('cropBids') || '{}');
+                if (bids[requestId]) {
+                    delete bids[requestId];
+                    localStorage.setItem('cropBids', JSON.stringify(bids));
+                    console.log("Removed cancelled bid from localStorage for requestId:", requestId);
+                }
+            } catch (storageError) {
+                console.error("Failed to update bids in localStorage:", storageError);
+            }
+            
+            console.log("Request marked as cancelled locally:", requestId);
+            
+            // Update UI
+            setSnackbar({
+                open: true,
+                message: successMessage,
+                severity: 'success'
+            });
+            
+            // Refresh purchase requests to apply the filter
+            await fetchPurchaseRequests();
+        } catch (error) {
+            console.error("Error cancelling purchase request:", error);
+            setSnackbar({
+                open: true,
+                message: `Error cancelling purchase request: ${error.message}`,
+                severity: 'error'
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Function to restore a previously cancelled request
+    const restoreCancelledRequest = async (requestId) => {
+        try {
+            console.log("Restoring cancelled request:", requestId);
+            
+            // Get the current list of cancelled requests from localStorage
+            const cancelledRequests = JSON.parse(localStorage.getItem('cancelledRequests') || '{}');
+            
+            // Check if the request exists in the cancelled list
+            if (!cancelledRequests[requestId]) {
+                throw new Error("This request was not found in your cancelled requests");
+            }
+            
+            // Remove the request from the cancelled list
+            delete cancelledRequests[requestId];
+            
+            // Save back to localStorage
+            localStorage.setItem('cancelledRequests', JSON.stringify(cancelledRequests));
+            
+            // Show success message
+            setSnackbar({
+                open: true,
+                message: "Purchase request has been restored to your active requests",
+                severity: 'success'
+            });
+            
+            // Refresh purchase requests to show the restored request
+            await fetchPurchaseRequests();
+        } catch (error) {
+            console.error("Error restoring cancelled request:", error);
+            setSnackbar({
+                open: true,
+                message: `Error restoring request: ${error.message}`,
+                severity: 'error'
+            });
+        }
+    };
+
+    // Function to fetch crop details by ID
+    const fetchCropDetails = async (cropId) => {
+        try {
+            if (!contract || !contract.methods) {
+                console.error("Contract not initialized in fetchCropDetails");
+                return null;
+            }
+
+            // Get all listings and find the specific crop
+            const allListings = await contract.methods.getAllListings().call();
+            const crop = allListings.find(listing => listing.cropID.toString() === cropId.toString());
+            
+            if (!crop) {
+                console.warn(`No crop found with ID ${cropId}`);
+                return null;
+            }
+
+            // Get farmer name for the crop
+            let farmerName = "Unknown Farmer";
+            try {
+                farmerName = await getFarmerName(crop.farmer);
+            } catch (error) {
+                console.warn("Could not fetch farmer name:", error);
+            }
+
+            // Get crop name
+            let cropName = `Crop #${cropId}`;
+            try {
+                cropName = await getCropName(cropId);
+            } catch (error) {
+                console.warn("Could not fetch crop name:", error);
+            }
+
+            return {
+                ...crop,
+                name: cropName,
+                farmerName
+            };
+        } catch (error) {
+            console.error(`Error fetching crop details for ID ${cropId}:`, error);
+            return null;
+        }
+    };
+
+    // Add new function to check if bidding is allowed
+    const isBiddingAllowed = (cultivationDate) => {
+      if (!cultivationDate) return false;
+      
+      const now = new Date();
+      const cultivation = new Date(cultivationDate);
+      
+      // Calculate dates
+      const twoMonthsBefore = new Date(cultivation);
+      twoMonthsBefore.setMonth(cultivation.getMonth() - 2);
+      
+      const fifteenDaysBefore = new Date(cultivation);
+      fifteenDaysBefore.setDate(cultivation.getDate() - 15);
+      
+      // Check if current time is within the allowed bidding window
+      return now >= twoMonthsBefore && now <= fifteenDaysBefore;
+    };
+
+    // Add function to get bidding status message
+    const getBiddingStatusMessage = (cultivationDate) => {
+      if (!cultivationDate) return "Cultivation date not set";
+      
+      const now = new Date();
+      const cultivation = new Date(cultivationDate);
+      
+      // Calculate dates
+      const twoMonthsBefore = new Date(cultivation);
+      twoMonthsBefore.setMonth(cultivation.getMonth() - 2);
+      
+      const fifteenDaysBefore = new Date(cultivation);
+      fifteenDaysBefore.setDate(cultivation.getDate() - 15);
+      
+      if (now < twoMonthsBefore) {
+        const daysUntilBidding = Math.ceil((twoMonthsBefore - now) / (1000 * 60 * 60 * 24));
+        return `Bidding will start in ${daysUntilBidding} days`;
+      } else if (now > fifteenDaysBefore) {
+        return "Bidding period has ended";
+      } else {
+        const daysUntilEnd = Math.ceil((fifteenDaysBefore - now) / (1000 * 60 * 60 * 24));
+        return `Bidding ends in ${daysUntilEnd} days`;
+      }
+    };
+
+    // Function to handle placing a bid on a crop
+    const handleBidClick = (crop) => {
+        if (!crop) return;
+        
+        // Check if bidding is allowed for this crop
+        if (!isBiddingAllowed(crop.cultivationDate)) {
+            setSnackbar({
+                open: true,
+                message: "Bidding is not allowed for this crop at this time.",
+                severity: 'warning'
+            });
+            return;
+        }
+        
+        // Set the selected crop and open the bid dialog
+        setSelectedCrop(crop);
+        
+        // Get current highest bid for initialization
+        const currentHighestBid = cropHighestBids[crop.id || crop.cropID];
+        let initialBidAmount = "";
+        
+        if (currentHighestBid) {
+            // Set initial bid amount to slightly higher than current highest bid
+            const highestBidAmount = parseFloat(currentHighestBid.amount);
+            initialBidAmount = (highestBidAmount + 0.01).toFixed(2);
+        } else {
+            // No current bid, set to base price
+            initialBidAmount = parseFloat(formatEthPrice(crop.price)).toFixed(2);
+        }
+        
+        // Set the initial bid amount
+        setBidAmount(initialBidAmount);
+        
+        // Refresh bid history for this crop
+        refreshBidHistory(crop.id || crop.cropID);
+        
+        // Open the bid dialog
+        setBidDialogOpen(true);
+    };
+    
+    // Function to submit a bid
+    const handlePlaceBid = async () => {
+        if (!selectedCrop || !bidAmount) {
+            setSnackbar({
+                open: true,
+                message: "Please select a crop and enter a bid amount.",
+                severity: 'warning'
+            });
+            return;
+        }
+        
+        // Validate bid amount
+        const bidAmountFloat = parseFloat(bidAmount);
+        if (isNaN(bidAmountFloat) || bidAmountFloat <= 0) {
+            setSnackbar({
+                open: true,
+                message: "Please enter a valid bid amount.",
+                severity: 'warning'
+            });
+            return;
+        }
+        
+        // Check if bid is higher than current highest bid
+        const currentHighestBid = cropHighestBids[selectedCrop.id || selectedCrop.cropID];
+        if (currentHighestBid && bidAmountFloat <= parseFloat(currentHighestBid.amount)) {
+            setSnackbar({
+                open: true,
+                message: `Your bid must be higher than the current highest bid (${currentHighestBid.amount} ETH).`,
+                severity: 'warning'
+            });
+            return;
+        }
+        
+        // Check if bid is higher than base price
+        const basePrice = parseFloat(formatEthPrice(selectedCrop.price));
+        if (bidAmountFloat <= basePrice) {
+            setSnackbar({
+                open: true,
+                message: `Your bid must be higher than the base price (${basePrice} ETH).`,
+                severity: 'warning'
+            });
+            return;
+        }
+        
+        try {
+            setLoading(true);
+            
+            // Convert bid amount to wei
+            const bidAmountWei = web3.utils.toWei(bidAmount.toString(), 'ether');
+            
+            console.log(`Placing bid of ${bidAmount} ETH (${bidAmountWei} wei) on crop ${selectedCrop.id || selectedCrop.cropID}`);
+            
+            // Call the contract method to place the bid
+            const result = await contract.methods.placeBid(selectedCrop.id || selectedCrop.cropID, bidAmountWei).send({
+                from: localAccount,
+                value: 0 // No ETH sent with this transaction, it's just registering the bid
+            });
+            
+            console.log("Bid placed successfully:", result);
+            
+            // Close the bid dialog
+            setBidDialogOpen(false);
+            
+            // Show success message
+            setSnackbar({
+                open: true,
+                message: `Bid of ${bidAmount} ETH placed successfully!`,
+                severity: 'success'
+            });
+            
+            // Update highest bid in state
+            setCropHighestBids(prevBids => ({
+                ...prevBids,
+                [selectedCrop.id || selectedCrop.cropID]: {
+                    bidder: localAccount,
+                    amount: bidAmount,
+                    timestamp: new Date().toLocaleString(),
+                    rawTimestamp: Math.floor(Date.now() / 1000)
+                }
+            }));
+            
+            // Refresh bid history
+            refreshBidHistory(selectedCrop.id || selectedCrop.cropID);
+        } catch (error) {
+            console.error("Error placing bid:", error);
+            setSnackbar({
+                open: true,
+                message: `Error placing bid: ${error.message}`,
+                severity: 'error'
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Add function to fetch bid history
+    const fetchBidHistory = async (cropId) => {
+        try {
+            const allBids = await contract.methods.getBidsForCrop(cropId).call();
+            console.log(`Raw bids from contract for crop ${cropId}:`, allBids);
+            
+            // Check if the contract returned a proper structure
+            if (!allBids || !Array.isArray(allBids) || allBids.length < 3) {
+                console.error("Invalid format received from getBidsForCrop:", allBids);
+                return [];
+            }
+            
+            // Format bids correctly - contract returns array of arrays
+            // [0] is array of bidder addresses
+            // [1] is array of bid amounts (in wei)
+            // [2] is array of timestamps
+            const formattedBids = [];
+            
+            // Loop through all returned bids
+            for (let i = 0; i < allBids[0].length; i++) {
+                formattedBids.push({
+                    bidder: allBids[0][i],
+                    amount: web3.utils.fromWei(allBids[1][i], 'ether'),
+                    amountNumber: parseFloat(web3.utils.fromWei(allBids[1][i], 'ether')),
+                    timestamp: new Date(parseInt(allBids[2][i]) * 1000).toLocaleString()
+                });
+            }
+            
+            // Sort bids by numeric amount (highest first)
+            formattedBids.sort((a, b) => b.amountNumber - a.amountNumber);
+            
+            console.log(`Fetched ${formattedBids.length} bids for crop ${cropId}:`, formattedBids);
+            return formattedBids;
+        } catch (error) {
+            console.error(`Error fetching bid history for crop ${cropId}:`, error);
+            return [];
+        }
+    };
+
+    // Add function to get the highest bid for a crop
+    const getHighestBidForCrop = async (cropId) => {
+        try {
+            // Use the contract method directly to get the highest bid
+            if (contract && contract.methods && contract.methods.getHighestBidForCrop) {
+                const result = await contract.methods.getHighestBidForCrop(cropId).call();
+                
+                // Check if there is actually a bid (non-zero address and amount)
+                if (result && result[0] !== '0x0000000000000000000000000000000000000000' && parseInt(result[1]) > 0) {
+                    const bidder = result[0];
+                    const amount = web3.utils.fromWei(result[1], 'ether');
+                    const timestamp = new Date(parseInt(result[2]) * 1000).toLocaleString();
+                    
+                    console.log(`Direct highest bid for crop ${cropId}:`, {
+                        bidder,
+                        amount,
+                        timestamp
+                    });
+                    
+                    return {
+                        bidder,
+                        amount,
+                        amountNumber: parseFloat(amount),
+                        timestamp
+                    };
+                }
+            }
+            
+            // Fallback to fetching all bids and finding the highest
+            const bidHistory = await fetchBidHistory(cropId);
+            
+            if (!bidHistory || bidHistory.length === 0) {
+                console.log(`No bids found for crop ${cropId}`);
+                return null; // No bids found
+            }
+            
+            // First bid is already the highest after sorting in fetchBidHistory
+            console.log(`Highest bid for crop ${cropId}:`, bidHistory[0]);
+            return bidHistory[0];
+        } catch (error) {
+            console.error(`Error getting highest bid for crop ${cropId}:`, error);
+            return null;
+        }
+    };
+
+    // Helper function to get short display name for addresses
+    const getBuyerDisplayName = (address) => {
+        if (!address) return "";
+        return address.substring(0, 6) + '...' + address.substring(address.length - 4);
+    };
+
+    // Listen for bid updates from other tabs/windows
+    useEffect(() => {
+        const handleStorageChange = (event) => {
+            if (event.key === 'latest_bid_event') {
+                try {
+                    const bidEvent = JSON.parse(localStorage.getItem('latest_bid_event'));
+                    if (bidEvent && bidEvent.type === 'new_bid_placed') {
+                        console.log("Detected new bid from another user:", bidEvent);
+                        
+                        // Only process if it's a different user
+                        if (bidEvent.bidder !== localAccount) {
+                            console.log("Refreshing bids for crop:", bidEvent.cropId);
+                            
+                            // Refresh the highest bid data for this crop
+                            getHighestBidForCrop(bidEvent.cropId)
+                                .then(highestBid => {
+                                    if (highestBid) {
+                                        console.log("Updated highest bid:", highestBid);
+                                        setCropHighestBids(prev => ({
+                                            ...prev,
+                                            [bidEvent.cropId]: highestBid
+                                        }));
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error("Error refreshing highest bid:", error);
+                                });
+                                
+                            // Refresh listing data
+                            fetchListings();
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error processing storage event for bids:", error);
+                }
+            }
+        };
+        
+        // Add listener for storage events
+        window.addEventListener('storage', handleStorageChange);
+        
+        // Check for existing bids on mount
+        const checkExistingBids = async () => {
+            try {
+                // Get list of crop IDs from listings
+                if (crops && crops.length > 0) {
+                    console.log("Checking for existing bids on initial mount");
+                    
+                    // Get highest bids for all crops
+                    for (const crop of crops) {
+                        if (crop && crop.id) {
+                            const highestBid = await getHighestBidForCrop(crop.id);
+                            if (highestBid) {
+                                console.log(`Found highest bid for crop ${crop.id}:`, highestBid);
+                                setCropHighestBids(prev => ({
+                                    ...prev,
+                                    [crop.id]: highestBid
+                                }));
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error("Error checking existing bids:", error);
+            }
+        };
+        
+        checkExistingBids();
+        
+        // Clean up listener on component unmount
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+        };
+    }, [crops, localAccount]);
+
+    // Add an event listener for BidPlaced events to update in real-time
+    useEffect(() => {
+        const setupBidEventListener = async () => {
+            if (!contract || !contract.events) return;
+            
+            // Listen for BidPlaced events
+            const bidEventSubscription = contract.events.BidPlaced({ fromBlock: 'latest' })
+                .on('data', async (event) => {
+                    console.log('New bid event detected:', event);
+                    const cropId = event.returnValues.cropID;
+                    const bidder = event.returnValues.bidder;
+                    const amount = web3.utils.fromWei(event.returnValues.amount, 'ether');
+                    const timestamp = new Date(parseInt(event.returnValues.timestamp) * 1000).toLocaleString();
+                    
+                    console.log(`New bid placed for crop ${cropId}: ${amount} ETH by ${bidder}`);
+                    
+                    // Update the crop highest bids state
+                    setCropHighestBids(prev => ({
+                        ...prev,
+                        [cropId]: {
+                            bidder,
+                            amount,
+                            amountNumber: parseFloat(amount),
+                            timestamp
+                        }
+                    }));
+                    
+                    // Trigger a refresh for all components that depend on bid data
+                    setLastBidUpdate(Date.now());
+                    
+                    // Store the event in localStorage to notify other browser tabs
+                    localStorage.setItem('latest_bid_event', JSON.stringify({
+                        type: 'new_bid_placed',
+                        cropId,
+                        bidder,
+                        amount,
+                        timestamp: Date.now()
+                    }));
+                    
+                    // If the bid dialog is open and it's for this crop, refresh bid history
+                    if (bidDialogOpen && selectedCrop && selectedCrop.id == cropId) {
+                        const updatedBidHistory = await fetchBidHistory(cropId);
+                        setBidHistory(updatedBidHistory);
+                    }
+                    
+                    // Show a notification if another user outbid current user
+                    if (bidder.toLowerCase() !== localAccount.toLowerCase()) {
+                        // Find which crop this is
+                        const affectedCrop = crops.find(c => c.id == cropId);
+                        if (affectedCrop) {
+                            setSnackbar({
+                                open: true,
+                                message: `New bid: ${amount} ETH for ${affectedCrop.cropName}`,
+                                severity: 'info'
+                            });
+                        }
+                    }
+                })
+                .on('error', (error) => {
+                    console.error('Error in BidPlaced event listener:', error);
+                });
+                
+            return () => {
+                // Clean up event subscription
+                if (bidEventSubscription) {
+                    bidEventSubscription.unsubscribe((error, success) => {
+                        if (error) {
+                            console.error('Error unsubscribing from bid events:', error);
+                        } else {
+                            console.log('Successfully unsubscribed from bid events');
+                        }
+                    });
+                }
+            };
+        };
+        
+        if (contract && web3) {
+            return setupBidEventListener();
+        }
+    }, [contract, web3, localAccount, bidDialogOpen, selectedCrop, crops]);
+
+    // Add event listener for BidPlaced events to update highest bids in real-time
+    useEffect(() => {
+        // Only set up listener if contract is initialized
+        if (!contract || !contract.events) return;
+        
+        console.log("Setting up BidPlaced event listener");
+        
+        // Set up event listener for BidPlaced events
+        const subscription = contract.events.BidPlaced({
+            fromBlock: 'latest'
+        }, async (error, event) => {
+            if (error) {
+                console.error("Error in BidPlaced event listener:", error);
+                return;
+            }
+            
+            try {
+                console.log("New bid placed event:", event);
+                
+                // Extract event data
+                const { cropId, bidder, amount, timestamp } = event.returnValues;
+                
+                // Format the amount from wei to ether
+                const amountInEther = formatEthPrice(amount);
+                
+                // Format the timestamp to a readable date
+                const date = new Date(parseInt(timestamp) * 1000);
+                const formattedDate = date.toLocaleString();
+                
+                // Update the highest bids state
+                setCropHighestBids(prevBids => ({
+                    ...prevBids,
+                    [cropId]: {
+                        bidder,
+                        amount: amountInEther,
+                        timestamp: formattedDate,
+                        rawTimestamp: timestamp
+                    }
+                }));
+                
+                // Trigger state update to re-render
+                setLastBidUpdate(Date.now());
+                
+                // Store latest bid event in localStorage so other browser tabs can know
+                localStorage.setItem('latestBidEvent', JSON.stringify({
+                    cropId,
+                    bidder,
+                    amount: amountInEther,
+                    timestamp: formattedDate,
+                    rawTimestamp: timestamp,
+                    eventTime: Date.now()
+                }));
+                
+                // If the bid dialog is open and showing this crop, refresh the bid history
+                if (bidDialogOpen && selectedCrop && selectedCrop.id === cropId) {
+                    // Refresh bid history for the selected crop
+                    refreshBidHistory(cropId);
+                }
+                
+                // Show notification if the user is outbid
+                if (localAccount && bidder.toLowerCase() !== localAccount.toLowerCase() && 
+                    selectedCrop && selectedCrop.id === cropId) {
+                    setSnackbar({
+                        open: true,
+                        message: `New bid of ${amountInEther} ETH placed on ${selectedCrop.cropName}!`,
+                        severity: 'info'
+                    });
+                }
+            } catch (error) {
+                console.error("Error processing BidPlaced event:", error);
+            }
+        });
+        
+        // Clean up the subscription when the component unmounts
+        return () => {
+            if (subscription && subscription.unsubscribe) {
+                console.log("Cleaning up BidPlaced event subscription");
+                subscription.unsubscribe();
+            }
+        };
+    }, [contract, localAccount, bidDialogOpen, selectedCrop, refreshBidHistory]);
+
+    // Helper function to check if bidding is allowed for a crop based on cultivation date
+    const isBiddingAllowed = (cultivationDate) => {
+        if (!cultivationDate) return false;
+        
+        try {
+            const cultivationTimestamp = new Date(cultivationDate).getTime();
+            const currentTimestamp = new Date().getTime();
+            
+            // Allow bidding only if the crop was cultivated less than 30 days ago
+            // This is a simple rule - you can adjust this based on your business logic
+            const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
+            return (currentTimestamp - cultivationTimestamp) < thirtyDaysInMs;
+        } catch (error) {
+            console.error("Error checking if bidding is allowed:", error);
+            return false;
+        }
+    };
+    
+    // Helper function to format buyer display name
+    const getBuyerDisplayName = (address) => {
+        // Check if the address matches the current user
+        if (address && localAccount && address.toLowerCase() === localAccount.toLowerCase()) {
+            return "You";
+        }
+        
+        // Format the address for display (first 6 chars + ... + last 4 chars)
+        if (address) {
+            return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+        }
+        
+        return "Unknown Buyer";
+    };
+
+    return (
+        <Box sx={{ flexGrow: 1, pb: 4 }}>
+            <AppBar position="static" color="transparent" elevation={0} sx={{ mb: 3 }}>
+                <Toolbar>
+                    <Typography variant="h5" component="div" sx={{ flexGrow: 1 }}>
+                        Buyer Dashboard
+                    </Typography>
+                    
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        {buyerName && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
+                                <Avatar 
+                                    src={profileImageUrl} 
+                                    sx={{ 
+                                        width: 32, 
+                                        height: 32, 
+                                        mr: 1,
+                                        bgcolor: theme === 'dark' ? 'primary.dark' : 'primary.main'
+                                    }}
+                                >
+                                    {buyerName.charAt(0).toUpperCase()}
+                                </Avatar>
+                                <Typography variant="body1">{buyerName}</Typography>
+                            </Box>
+                        )}
+                        
+                        <ThemeToggle />
+                        
+                        <IconButton 
+                            color="inherit" 
+                            onClick={() => {
+                                localStorage.removeItem('account');
+                                localStorage.removeItem('buyerDashboardActiveTab');
+                                navigate('/');
+                            }}
+                        >
+                            <LogoutIcon />
+                        </IconButton>
+                    </Box>
+                </Toolbar>
+            </AppBar>
+            
+            <Container>
+                <Tabs 
+                    value={tabValue} 
+                    onChange={handleTabChange} 
+                    variant="fullWidth" 
+                    sx={{ mb: 3 }}
+                >
+                    <Tab 
+                        icon={<ShoppingBasketIcon />} 
+                        label="Available Crops" 
+                        iconPosition="start"
+                    />
+                    <Tab 
+                        icon={<HistoryIcon />} 
+                        label="My Requests" 
+                        iconPosition="start"
+                    />
+                    <Tab 
+                        icon={<LocalShippingIcon />} 
+                        label="My Purchases" 
+                        iconPosition="start"
+                    />
+                </Tabs>
+                
+                {/* Tab 0: Available Crops */}
+                {tabValue === 0 && (
+                    <Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                            <Typography variant="h6" component="div">
+                                All Available Crops
+                            </Typography>
+                            
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                <TextField
+                                    placeholder="Search crops..."
+                                    variant="outlined"
+                                    size="small"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    InputProps={{
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <SearchIcon />
+                                            </InputAdornment>
+                                        ),
+                                    }}
+                                    sx={{ mr: 1 }}
+                                />
+                                
+                                <Button 
+                                    variant="outlined" 
+                                    startIcon={<RefreshIcon />}
+                                    onClick={() => fetchListings()}
+                                >
+                                    Refresh
+                                </Button>
+                            </Box>
+                        </Box>
+                        
+                        {loading ? (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                                <CircularProgress />
+                            </Box>
+                        ) : filteredCrops.length > 0 ? (
+                            <Grid container spacing={3}>
+                                {filteredCrops.map((crop, index) => (
+                                    <Grid item xs={12} sm={6} md={4} key={crop.cropID}>
+                                        {/* Individual crop card rendering */}
+                                    </Grid>
+                                ))}
+                            </Grid>
+                        ) : (
+                            <Box sx={{ textAlign: 'center', mt: 4 }}>
+                                <Typography variant="h6" color="text.secondary">
+                                    No crops available
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    {searchTerm ? 'Try a different search term' : 'Check back later for new listings'}
+                                </Typography>
+                            </Box>
+                        )}
+                    </Box>
+                )}
+                
+                {/* Tab 1: My Requests */}
+                {tabValue === 1 && (
+                    <Box>
+                        {/* My Requests content here */}
+                    </Box>
+                )}
+                
+                {/* Tab 2: Orders */}
+                {tabValue === 2 && (
+                    <Box>
+                        {/* Orders content here */}
+                    </Box>
+                )}
+                
+                {/* Purchase Modal */}
+                <Dialog
+                    open={showModal}
+                    onClose={closeModal}
+                    aria-labelledby="purchase-dialog-title"
+                    maxWidth="sm"
+                    fullWidth
+                >
+                    <DialogTitle id="purchase-dialog-title">
+                        {selectedCrop && (
+                            <Typography variant="h6" component="div">
+                                Purchase {selectedCrop.cropName}
+                            </Typography>
+                        )}
+                    </DialogTitle>
+                    <DialogContent>
+                        {selectedCrop && (
+                            <>
+                                <Box sx={{ mb: 2 }}>
+                                    <Typography variant="body1" gutterBottom>
+                                        <strong>Farmer:</strong> {selectedCrop.farmerName}
+                                    </Typography>
+                                    <Typography variant="body1" gutterBottom>
+                                        <strong>Base Price:</strong> {formatEthPrice(selectedCrop.price)} ETH per kg
+                                    </Typography>
+                                    <Typography variant="body1" gutterBottom>
+                                        <strong>Available Quantity:</strong> {selectedCrop.quantity} kg
+                                    </Typography>
+                                    <Typography variant="body1" gutterBottom>
+                                        <strong>Expected Delivery:</strong> {selectedCrop.deliveryDate}
+                                    </Typography>
+                                    <Typography variant="body1" gutterBottom>
+                                        <strong>Cultivation Date:</strong> {selectedCrop.cultivationDate}
+                                    </Typography>
+                                </Box>
+                                
+                                {/* Show highest bid information if available */}
+                                {cropHighestBids[selectedCrop.id || selectedCrop.cropID] && (
+                                    <Box sx={{ mb: 2, p: 2, bgcolor: 'rgba(63, 81, 181, 0.08)', borderRadius: 1 }}>
+                                        <Typography variant="subtitle1" gutterBottom color="primary">
+                                            <strong>Current Highest Bid</strong>
+                                        </Typography>
+                                        <Typography variant="body1">
+                                            <strong>Amount:</strong> {cropHighestBids[selectedCrop.id || selectedCrop.cropID].amount} ETH
+                                        </Typography>
+                                        <Typography variant="body1">
+                                            <strong>By:</strong> {cropHighestBids[selectedCrop.id || selectedCrop.cropID].bidder === localAccount ? 
+                                                "You" : 
+                                                getBuyerDisplayName(cropHighestBids[selectedCrop.id || selectedCrop.cropID].bidder)}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                            {cropHighestBids[selectedCrop.id || selectedCrop.cropID].timestamp}
+                                        </Typography>
+                                        
+                                        {isBiddingAllowed(selectedCrop.cultivationDate) && (
+                                            <Button 
+                                                variant="outlined" 
+                                                color="primary" 
+                                                sx={{ mt: 1 }}
+                                                onClick={() => {
+                                                    closeModal();
+                                                    handleBidClick(selectedCrop);
+                                                }}
+                                            >
+                                                Place a Bid
+                                            </Button>
+                                        )}
+                                    </Box>
+                                )}
+
+                                <TextField
+                                    autoFocus
+                                    margin="dense"
+                                    label="Quantity (kg)"
+                                    type="number"
+                                    fullWidth
+                                    value={purchaseQuantity}
+                                    onChange={(e) => setPurchaseQuantity(e.target.value)}
+                                    InputProps={{
+                                        inputProps: { min: 1, max: selectedCrop.quantity },
+                                    }}
+                                    required
+                                />
+                                <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
+                                    <AttachMoneyIcon sx={{ mr: 1, color: 'primary.main' }} />
+                                    <Typography variant="body1">
+                                        <strong>Total Price:</strong> {purchaseQuantity && !isNaN(parseInt(purchaseQuantity)) ? 
+                                        (formatEthPrice(selectedCrop.price) * parseInt(purchaseQuantity)).toFixed(4) : 0} ETH
+                                    </Typography>
+                                </Box>
+                                <TextField
+                                    margin="dense"
+                                    label="Message to Farmer (Optional)"
+                                    type="text"
+                                    fullWidth
+                                    multiline
+                                    rows={3}
+                                    value={requestMessage}
+                                    onChange={(e) => setRequestMessage(e.target.value)}
+                                    placeholder="Any special requests or notes for the farmer?"
+                                />
+                            </>
+                        )}
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={closeModal}>Cancel</Button>
+                        <Button 
+                            onClick={handleBuy} 
+                            variant="contained" 
+                            color="primary"
+                            disabled={
+                                !purchaseQuantity || 
+                                isNaN(parseInt(purchaseQuantity)) || 
+                                parseInt(purchaseQuantity) < 1 || 
+                                parseInt(purchaseQuantity) > parseInt(selectedCrop?.quantity || 0)
+                            }
+                        >
+                            Request Purchase
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+                
+                {/* Bid Dialog */}
+                <Dialog
+                    open={bidDialogOpen}
+                    onClose={() => setBidDialogOpen(false)}
+                    aria-labelledby="bid-dialog-title"
+                    maxWidth="sm"
+                    fullWidth
+                >
+                    <DialogTitle id="bid-dialog-title">
+                        {selectedCrop && (
+                            <Typography variant="h6" component="div">
+                                Place Bid on {selectedCrop.cropName}
+                            </Typography>
+                        )}
+                    </DialogTitle>
+                    <DialogContent>
+                        {selectedCrop && (
+                            <>
+                                <Box sx={{ mb: 2 }}>
+                                    <Typography variant="body1" gutterBottom>
+                                        <strong>Farmer:</strong> {selectedCrop.farmerName}
+                                    </Typography>
+                                    <Typography variant="body1" gutterBottom>
+                                        <strong>Base Price:</strong> {formatEthPrice(selectedCrop.price)} ETH per kg
+                                    </Typography>
+                                    <Typography variant="body1" gutterBottom>
+                                        <strong>Available Quantity:</strong> {selectedCrop.quantity} kg
+                                    </Typography>
+                                </Box>
+                                
+                                {/* Show current highest bid if available */}
+                                {cropHighestBids[selectedCrop.id || selectedCrop.cropID] && (
+                                    <Box sx={{ mb: 3, p: 2, bgcolor: 'rgba(63, 81, 181, 0.08)', borderRadius: 1 }}>
+                                        <Typography variant="subtitle1" gutterBottom color="primary">
+                                            <strong>Current Highest Bid</strong>
+                                        </Typography>
+                                        <Typography variant="body1">
+                                            <strong>Amount:</strong> {cropHighestBids[selectedCrop.id || selectedCrop.cropID].amount} ETH
+                                        </Typography>
+                                        <Typography variant="body1">
+                                            <strong>By:</strong> {cropHighestBids[selectedCrop.id || selectedCrop.cropID].bidder === localAccount ? 
+                                                "You" : 
+                                                getBuyerDisplayName(cropHighestBids[selectedCrop.id || selectedCrop.cropID].bidder)}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                            {cropHighestBids[selectedCrop.id || selectedCrop.cropID].timestamp}
+                                        </Typography>
+                                    </Box>
+                                )}
+                                
+                                <Alert severity="info" sx={{ mb: 2 }}>
+                                    <Typography variant="body2">
+                                        {getBiddingStatusMessage(selectedCrop.cultivationDate)}
+                                    </Typography>
+                                    <Typography variant="body2">
+                                        Your bid must be higher than the current highest bid or the base price.
+                                    </Typography>
+                                </Alert>
+                                
+                                <TextField
+                                    autoFocus
+                                    margin="dense"
+                                    label="Your Bid (ETH)"
+                                    type="number"
+                                    fullWidth
+                                    value={bidAmount}
+                                    onChange={(e) => setBidAmount(e.target.value)}
+                                    InputProps={{
+                                        inputProps: { min: 0, step: 0.01 },
+                                        startAdornment: <InputAdornment position="start">ETH</InputAdornment>,
+                                    }}
+                                    required
+                                />
+                                
+                                {/* Bid History Section */}
+                                {bidHistory && bidHistory.length > 0 && (
+                                    <Box sx={{ mt: 3 }}>
+                                        <Typography variant="subtitle1" gutterBottom>
+                                            <strong>Bid History</strong>
+                                        </Typography>
+                                        <List dense>
+                                            {bidHistory.map((bid, index) => (
+                                                <ListItem key={index} divider={index < bidHistory.length - 1}>
+                                                    <ListItemText
+                                                        primary={`${bid.amount} ETH by ${bid.bidder === localAccount ? "You" : getBuyerDisplayName(bid.bidder)}`}
+                                                        secondary={bid.timestamp}
+                                                    />
+                                                </ListItem>
+                                            ))}
+                                        </List>
+                                    </Box>
+                                )}
+                            </>
+                        )}
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setBidDialogOpen(false)}>Cancel</Button>
+                        <Button 
+                            onClick={handlePlaceBid} 
+                            variant="contained" 
+                            color="primary"
+                            disabled={
+                                !bidAmount || 
+                                isNaN(parseFloat(bidAmount)) || 
+                                parseFloat(bidAmount) <= 0 ||
+                                (cropHighestBids[selectedCrop?.id || selectedCrop?.cropID] && 
+                                 parseFloat(bidAmount) <= parseFloat(cropHighestBids[selectedCrop.id || selectedCrop.cropID].amount)) ||
+                                parseFloat(bidAmount) <= parseFloat(formatEthPrice(selectedCrop?.price)) ||
+                                !isBiddingAllowed(selectedCrop?.cultivationDate)
+                            }
+                        >
+                            Place Bid
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+                
+                {/* Snackbar for notifications */}
+                <Snackbar
+                    open={snackbar.open}
+                    autoHideDuration={snackbar.duration || 6000}
+                    onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                >
+                    <Alert 
+                        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} 
+                        severity={snackbar.severity || 'info'}
+                        sx={{ width: '100%' }}
+                        action={snackbar.action}
+                    >
+                        {snackbar.message}
+                    </Alert>
+                </Snackbar>
+            </Container>
+        </Box>
+    );
+}
+
+export default BuyerDashboard;
